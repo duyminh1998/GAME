@@ -1,3 +1,6 @@
+/output
+/pickle
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -14,7 +17,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/
 lib64/
 parts/
 sdist/
@@ -76,6 +79,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+/notebooks
 
 # IPython
 profile_default/
@@ -104,7 +108,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
-env/
+# env/
 venv/
 ENV/
 env.bak/
