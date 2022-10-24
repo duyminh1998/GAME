@@ -13,7 +13,7 @@ from gym.envs.classic_control import utils
 from gym.error import DependencyNotInstalled
 
 
-class MountainCarEnv(gym.Env):
+class MountainCar2DEnv(gym.Env):
     """
     ### Description
 
@@ -138,9 +138,13 @@ class MountainCarEnv(gym.Env):
             velocity = 0
 
         terminated = bool(
-            position >= self.goal_position and velocity >= self.goal_velocity
+            # position >= self.goal_position and velocity >= self.goal_velocity
+            position >= self.goal_position
         )
         reward = -1.0
+        if terminated:
+            reward = 0.0
+            velocity = 0
 
         self.state = (position, velocity)
         if self.render_mode == "human":
