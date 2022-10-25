@@ -14,7 +14,8 @@ class SarsaLambdaCMAC:
         gamma:float,
         method:str,
         num_of_tilings:int,
-        max_size:int) -> None:
+        max_size:int
+    ) -> None:
         """
         Description:
             Initializes a Sarsa(lambda) agent using CMAC tile coding.
@@ -149,7 +150,8 @@ class SarsaLambdaCMAC2DMountainCar(SarsaLambdaCMAC):
         """
         # remember to return a 0.0 if we have already reached the goal state
         terminated = bool(
-            state[0] >= self.goal_position and state[1] >= self.goal_velocity
+            # state[0] >= self.goal_position and state[1] >= self.goal_velocity
+            state[0] >= self.goal_position
         )
         if terminated:
             return 0.0
@@ -179,3 +181,96 @@ class SarsaLambdaCMAC2DMountainCar(SarsaLambdaCMAC):
                 value_of_a = self.get_value(state, a)
                 values[a] = value_of_a
             return np.random.choice([k for k, v in values.items() if v==max(values.values())])
+
+class SarsaLambdaCMAC3DMountainCar(SarsaLambdaCMAC2DMountainCar):
+    """Class for Sarsa lambda with CMAC to learn 3D Mountain Car"""
+    def __init__(self,
+        alpha:float,
+        lamb:float,
+        gamma:float,
+        method:str,
+        epsilon:float,
+        num_of_tilings:int,
+        max_size:int) -> None:
+        """
+        Description:
+            Initializes a Sarsa(lambda) agent using CMAC tile coding for 3D Mountain Car.
+
+        Arguments:
+            alpha: the step size parameter.
+            lambda: the trace decay rate.
+            gamma: the discount rate.
+            method: 'replacing' or 'accumulating'.
+            epsilon: the epsilon parameter for epsilon-greedy strategy of choosing actions.
+            num_of_tilings: the number of tilings used in CMAC.
+            max_size: the maximum size of the weights and trace vectors.
+
+        Return:
+            (None)
+        """
+        # inherent from parent class
+        super(SarsaLambdaCMAC3DMountainCar, self).__init__(alpha, lamb, gamma, method, epsilon, num_of_tilings, max_size)
+        self.actions = [0, 1, 2, 3, 4]
+
+        # initialize variables specific to 3D mountain car
+        # scale position and velocity for tile coding software
+        self.min_x_position = -1.2
+        self.max_x_position = 0.6
+        self.min_y_position = -1.2
+        self.max_y_position = 0.6
+        self.max_x_speed = 0.07
+        self.min_x_speed = -0.07
+        self.max_y_speed = 0.07
+        self.min_y_speed = -0.07
+        self.goal_x_position = 0.5
+        self.goal_y_position = 0.5
+        self.x_position_scale = self.num_of_tilings / (self.max_x_position - self.min_x_position)
+        self.x_velocity_scale = self.num_of_tilings / (self.max_x_speed - self.min_x_speed)
+        self.y_position_scale = self.num_of_tilings / (self.max_y_position - self.min_y_position)
+        self.y_velocity_scale = self.num_of_tilings / (self.max_y_speed - self.min_y_speed)
+        self.goal_velocity = 0.0
+
+    def get_active_tiles(self, state:list, action:int) -> list:
+        """
+        Description:
+            Get the indices of the active tiles for a given state and action.
+
+        Arguments:
+            state: a list of the current state variables in 3D Mountain Car.
+            action: the current action.
+
+        Return:
+            (list) a list of the indices of the active tiles
+        """
+        # unpack state variables
+        x_position, x_velocity, y_position, y_velocity = state
+        normalized_state = [x_position * self.x_position_scale, x_velocity * self.x_velocity_scale,
+                            y_position * self.y_position_scale, y_velocity * self.y_velocity_scale]
+        actions = [action]
+
+        # use TileCoding module to get active tiles
+        active_tiles = tiles(self.hash_table, self.num_of_tilings, normalized_state, actions)
+        return active_tiles
+
+    def get_value(self, state:list, action:int) -> float:
+        """
+        Description:
+            Estimate the value of a given state and action.
+
+        Arguments:
+            state: a list of the current state variables in 3D Mountain Car.
+            action: the current action.
+
+        Return:
+            (float) the value of the current state and action
+        """
+        # remember to return a 0.0 if we have already reached the goal state
+        terminated = bool(
+            # state[0] >= self.goal_position and state[1] >= self.goal_velocity
+            state[0] >= self.goal_x_position and state[2] >= self.goal_y_position
+        )
+        if terminated:
+            return 0.0
+        # else
+        active_tiles = self.get_active_tiles(state, action)
+        return np.sum(self.weights[active_tiles])

@@ -10,7 +10,7 @@ import numpy as np
 import gym
 from gym import spaces
 from gym.envs.classic_control import utils
-# import pygame
+from gym.error import DependencyNotInstalled
 
 class MountainCar3DEnv(gym.Env):
     """
@@ -118,7 +118,7 @@ class MountainCar3DEnv(gym.Env):
         self.render_mode = render_mode
 
         self.screen_width = 600
-        self.screen_height = 400
+        self.screen_height = 600
         self.screen = None
         self.clock = None
         self.isopen = True
@@ -177,9 +177,14 @@ class MountainCar3DEnv(gym.Env):
 
         # check termination
         terminated = bool(
-            x_position >= self.goal_x_position and x_velocity >= self.goal_velocity and y_position >= self.goal_y_position and y_velocity >= self.goal_velocity
+            # x_position >= self.goal_x_position and x_velocity >= self.goal_velocity and y_position >= self.goal_y_position and y_velocity >= self.goal_velocity
+            x_position >= self.goal_x_position and y_position >= self.goal_y_position
         )
         reward = -1.0
+        if terminated:
+            reward = 0.0
+            x_velocity = 0
+            y_velocity = 0
         info = self._get_info()
 
         # next state
@@ -206,3 +211,127 @@ class MountainCar3DEnv(gym.Env):
     
     def _get_info(self):
         return {"z_position": math.sin(3 * self.state[0]) + math.sin(3 * self.state[2])}
+
+    def render(self):
+        # imports and initializations
+        if self.render_mode is None:
+            gym.logger.warn(
+                "You are calling render method without specifying any render mode. "
+                "You can specify the render_mode at initialization, "
+                f'e.g. gym("{self.spec.id}", render_mode="rgb_array")'
+            )
+            return
+
+        try:
+            import pygame
+            from pygame import gfxdraw
+        except ImportError:
+            raise DependencyNotInstalled(
+                "pygame is not installed, run `pip install gym[classic_control]`"
+            )
+
+        # main render loop
+        if self.screen is None:
+            pygame.init()
+            if self.render_mode == "human":
+                pygame.display.init()
+                self.screen = pygame.display.set_mode(
+                    (self.screen_width, self.screen_height)
+                )
+            else:  # mode in "rgb_array"
+                self.screen = pygame.Surface((self.screen_width, self.screen_height))
+        if self.clock is None:
+            self.clock = pygame.time.Clock()
+
+        world_width = self.max_x_position - self.min_x_position
+        world_height = self.max_y_position - self.min_y_position
+        x_scale = self.screen_width / world_width
+        y_scale = self.screen_height / world_height
+        carwidth = 20
+        carheight = 20
+
+        # background
+        self.surf = pygame.Surface((self.screen_width, self.screen_height))
+        self.surf.fill((255, 255, 255))
+        # add contour plot
+        # contour_plot = pygame.image.load("C:\\Users\\minhh\\Documents\\JHU\\Fall 2022\\Evolutionary and Swarm Intelligence\\src\\GAME\\notebooks\\3d_mountain_car_surf.png")
+        # charImage = pygame.transform.scale(charImage, charRect.size)
+        # contour_plot = contour_plot.convert()
+
+        x_position = self.state[0]
+        y_position = self.state[2]
+
+        # xs = np.linspace(self.min_x_position, self.max_x_position, 100)
+        # ys = self._height(xs)
+        # xys = list(zip((xs - self.min_x_position) * scale, ys * scale))
+
+        # pygame.draw.aalines(self.surf, points=xys, closed=False, color=(0, 0, 0))
+
+        clearance = 10
+
+        l, r, t, b = -carwidth / 2, carwidth / 2, carheight, 0
+        coords = []
+        for c in [(l, b), (l, t), (r, t), (r, b)]:
+            # c = pygame.math.Vector2(c).rotate_rad(math.cos(3 * x_position))
+            coords.append(
+                (
+                    c[0] + (x_position - self.min_x_position) * x_scale,
+                    c[1] + (y_position - self.min_y_position) * y_scale,
+                )
+            )
+
+        gfxdraw.aapolygon(self.surf, coords, (0, 0, 0))
+        gfxdraw.filled_polygon(self.surf, coords, (0, 0, 0))
+
+        # for c in [(carwidth / 4, 0), (-carwidth / 4, 0)]:
+        #     c = pygame.math.Vector2(c).rotate_rad(math.cos(3 * x_position))
+        #     wheel = (
+        #         int(c[0] + (x_position - self.min_x_position) * scale),
+        #         int(c[1] + clearance + self._height(x_position) * scale),
+        #     )
+
+        #     gfxdraw.aacircle(
+        #         self.surf, wheel[0], wheel[1], int(carheight / 2.5), (128, 128, 128)
+        #     )
+        #     gfxdraw.filled_circle(
+        #         self.surf, wheel[0], wheel[1], int(carheight / 2.5), (128, 128, 128)
+        #     )
+
+        flagx1 = int((self.goal_x_position - self.min_x_position) * x_scale)
+        flagx2 = flagx1 + 50
+        flagy1 = int((self.goal_y_position - self.min_y_position) * y_scale)
+        # flagy1 = int(self._height(self.goal_position) * scale)
+        flagy2 = flagy1 + 50
+        # gfxdraw.vline(self.surf, flagx, flagy1, flagy2, (0, 0, 0))
+
+        # gfxdraw.aapolygon(
+        #     self.surf,
+        #     [(flagx, flagy2), (flagx, flagy2 - 10), (flagx + 25, flagy2 - 5)],
+        #     (204, 204, 0),
+        # )
+        gfxdraw.filled_polygon(
+            self.surf,
+            [(flagx1, flagy1), (flagx1, flagy2), (flagx2, flagy2), (flagx2, flagy1)],
+            (204, 204, 0),
+        )
+
+        self.surf = pygame.transform.flip(self.surf, False, True)
+        self.screen.blit(self.surf, (0, 0))
+        # self.screen.blit(contour_plot, (0, 0))
+        if self.render_mode == "human":
+            pygame.event.pump()
+            self.clock.tick(self.metadata["render_fps"])
+            pygame.display.flip()
+
+        elif self.render_mode == "rgb_array":
+            return np.transpose(
+                np.array(pygame.surfarray.pixels3d(self.screen)), axes=(1, 0, 2)
+            )
+
+    def close(self):
+        if self.screen is not None:
+            import pygame
+
+            pygame.display.quit()
+            pygame.quit()
+            self.isopen = False
