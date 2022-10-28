@@ -1,0 +1,16 @@
+# Keepers: 3
+# Takers:  2
+# Region:  20 x 20
+#
+# Description of Fields:
+# 1) Episode number
+# 2) Start time in simulator steps (100ms)
+# 3) End time in simulator steps (100ms)
+# 4) Duration in simulator steps (100ms)
+# 5) (o)ut of bounds / (t)aken away
+#
+1	0	55	55	o
+2	55	154	99	t
+3	154	204	50	t
+4	204	258	54	t
+5	258	307	49	t
