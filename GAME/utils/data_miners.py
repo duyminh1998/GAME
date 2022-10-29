@@ -139,7 +139,14 @@ class RCSLogMiner:
         self.taker_ids = [i for i in range(num_keepers + 1, num_keepers + num_takers + 1)]
 
         # create a dataframe for the rcg file
-        self.rcg_df = pd.read_csv(rcg_csv_filepath, index_col=False, low_memory=False)
+        rcg_usable_cols = ['show_time', 'ball_x', 'ball_y', 'ball_vx', 'ball_vy']
+        for i in range(1, num_takers + num_keepers + 1):
+            rcg_usable_cols.append('player_l{}_state'.format(i))
+            rcg_usable_cols.append('player_l{}_x'.format(i))
+            rcg_usable_cols.append('player_l{}_y'.format(i))
+            rcg_usable_cols.append('player_l{}_vx'.format(i))
+            rcg_usable_cols.append('player_l{}_vy'.format(i))
+        self.rcg_df = pd.read_csv(rcg_csv_filepath, index_col=False, usecols = rcg_usable_cols)
         self.rcg_df = self.rcg_df.dropna(axis=1) # drop empty columns
         self.rcg_df_len = len(self.rcg_df)
 
@@ -380,22 +387,25 @@ class RCSLogMiner:
         seen_first_action = False
         kp_id = -1
         with open(draw_log_path, 'r') as f:
-            lines = f.readlines()
-            for line in lines:
+            # lines = f.readlines()
+            for line in f:
                 line_split = line.split(' ')
                 if len(line_split) > 1 and line_split[1] == '\"state\"':
-                    cycle = int(line_split[0][:-1])
-                    state = line.split('\"')[3]
-                    # check to see if we can id the keeper
-                    if '(' in state and not seen_first_action:
-                        cycle_of_first_action = cycle + 1
-                        seen_first_action = True
-                        # check the rcg dataframe for the id of the keeper who also took an action at the specified time
-                        rcg_at_time_slice = self.rcg_df[self.rcg_df['show_time'] == cycle_of_first_action]
-                        for col in rcg_at_time_slice.columns:
-                            if rcg_at_time_slice[col].to_list()[0] == '0x3':
-                                kp_id = int(col.split('_')[1][1:])
-                    df = df.append({'Cycle': cycle, 'State': state}, ignore_index=True)
+                    try:
+                        cycle = int(line_split[0][:-1])
+                        state = line.split('\"')[3]
+                        # check to see if we can id the keeper
+                        if '(' in state and not seen_first_action:
+                            cycle_of_first_action = cycle + 1
+                            seen_first_action = True
+                            # check the rcg dataframe for the id of the keeper who also took an action at the specified time
+                            rcg_at_time_slice = self.rcg_df[self.rcg_df['show_time'] == cycle_of_first_action]
+                            for col in rcg_at_time_slice.columns:
+                                if rcg_at_time_slice[col].to_list()[0] == '0x3':
+                                    kp_id = int(col.split('_')[1][1:])
+                        df = df.append({'Cycle': cycle, 'State': state}, ignore_index=True)
+                    except IndexError:
+                        pass
         return df, kp_id
 
     def export_data(self, path:str, file_name:str) -> None:
@@ -413,7 +423,7 @@ class RCSLogMiner:
         self.transition_df.to_csv(os.path.join(path, file_name), index = False)
 
 if __name__ == '__main__':
-    test = 0
+    test = 1
     if test == 0:
         rcg_csv_filepath = "C:\\Users\\minhh\\Documents\\JHU\\Fall 2022\\Evolutionary and Swarm Intelligence\\src\\GAME\\logs\\202210280159-UbuntuXenial\\202210280159-UbuntuXenial.rcg.csv"
         logs_folderpath = "C:\\Users\\minhh\\Documents\\JHU\\Fall 2022\\Evolutionary and Swarm Intelligence\\src\\GAME\\logs\\202210280159-UbuntuXenial"
@@ -442,14 +452,15 @@ if __name__ == '__main__':
         csv_out_name = 'keepaway_3v2_transitions.csv'
         log_miner.export_data(csv_out_path, csv_out_name)
     elif test == 1:
-        rcg_csv_filepath = "C:\\Users\\minhh\\Documents\\JHU\\Fall 2022\\Evolutionary and Swarm Intelligence\\src\\GAME\\logs\\202210280159-UbuntuXenial\\202210280159-UbuntuXenial.rcg.csv"
-        logs_folderpath = "C:\\Users\\minhh\\Documents\\JHU\\Fall 2022\\Evolutionary and Swarm Intelligence\\src\\GAME\\logs\\202210280159-UbuntuXenial"
+        rcg_csv_filepath = "C:\\Users\\minhh\\Documents\\JHU\\Fall 2022\\Evolutionary and Swarm Intelligence\\src\\GAME\\logs\\202210290434-UbuntuXenial\\202210290434-UbuntuXenial.rcg.csv"
+        logs_folderpath = "C:\\Users\\minhh\\Documents\\JHU\\Fall 2022\\Evolutionary and Swarm Intelligence\\src\\GAME\\logs\\202210290434-UbuntuXenial"
         num_keepers = 4
         num_takers = 3
         num_state_vars = 19
         num_actions = 4
-        header_df_col_names = ['Cycle', 'ID_kp_w_ball']
         transition_df_col_names = [
+            'Cycle',
+            'ID_kp_w_ball',
             'dist(K1,C)',
             'dist(K1,K2)',
             'dist(K1,K3)',
@@ -468,20 +479,34 @@ if __name__ == '__main__':
             'Min(dist(K4,T1),dist(K4,T2),dist(K4,T3))',
             'Min(ang(K2,K1,T1),ang(K2,K1,T2),ang(K2,K1,T3))',
             'Min(ang(K3,K1,T1),ang(K3,K1,T2),ang(K3,K1,T3))',
-            'Min(ang(K4,K1,T1),ang(K4,K1,T2),ang(K4,K1,T3))'
+            'Min(ang(K4,K1,T1),ang(K4,K1,T2),ang(K4,K1,T3))',
+            'Action',
+            'dist(K1,C)_next',
+            'dist(K1,K2)_next',
+            'dist(K1,K3)_next',
+            'dist(K1,K4_next',
+            'dist(K1,T1)_next',
+            'dist(K1,T2)_next',
+            'dist(K1,T3)_next',
+            'dist(K2,C)_next',
+            'dist(K3,C)_next',
+            'dist(K4,C)_next',
+            'dist(T1,C)_next',
+            'dist(T2,C)_next',
+            'dist(T3,C)_next',
+            'Min(dist(K2,T1),dist(K2,T2),dist(K2,T3))_next',
+            'Min(dist(K3,T1),dist(K3,T2),dist(K3,T3))_next',
+            'Min(dist(K4,T1),dist(K4,T2),dist(K4,T3))_next',
+            'Min(ang(K2,K1,T1),ang(K2,K1,T2),ang(K2,K1,T3))_next',
+            'Min(ang(K3,K1,T1),ang(K3,K1,T2),ang(K3,K1,T3))_next',
+            'Min(ang(K4,K1,T1),ang(K4,K1,T2),ang(K4,K1,T3))_next'
         ]
-        transition_df_col_names = header_df_col_names + transition_df_col_names
-        transition_df_col_names.append('Action')
-        for col_name in transition_df_col_names:
-            transition_df_col_names.append(col_name + '_next')
         transition_df_col_dtypes = [
-            'int', 'int'
+            'int', 'int', 'float', 'float', 'float', 'float', 'float', 'float', 'float', 'float', 'float', 'float',
+             'float', 'float', 'float', 'float', 'float', 'float', 'float', 'float', 'float', 'int',
+             'float', 'float', 'float', 'float', 'float', 'float', 'float', 'float', 'float', 'float',
+             'float', 'float', 'float', 'float', 'float', 'float', 'float', 'float', 'float'
         ]
-        for _ in range(num_state_vars):
-            transition_df_col_dtypes.append('float')
-        transition_df_col_dtypes.append('int')
-        for _ in range(num_state_vars):
-            transition_df_col_dtypes.append('float')
         log_miner = RCSLogMiner(rcg_csv_filepath, logs_folderpath, transition_df_col_names, transition_df_col_dtypes, num_keepers, num_takers, num_state_vars, num_actions)
         csv_out_path = "C:\\Users\\minhh\\Documents\\JHU\\Fall 2022\\Evolutionary and Swarm Intelligence\\src\\GAME\\output\\10292022 Initial Log Extraction for Keepaway"
         csv_out_name = 'keepaway_4v3_transitions.csv'
