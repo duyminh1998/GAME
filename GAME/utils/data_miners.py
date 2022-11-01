@@ -9,7 +9,7 @@ import sys
 import math
 import os
 
-from helper_funcs import *
+from GAME.utils.helper_funcs import *
 
 # Named tuple that stores metadata about an experiment
 ExperimentInfo = namedtuple('ExperimentInfo', [
