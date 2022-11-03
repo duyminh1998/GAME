@@ -50,8 +50,11 @@ class RLSamplesCollector:
         self.agent_info = agent_info
 
         # build pandas DataFrame using data_column_names
-        data_column_info = {col_name : col_dtype for col_name, col_dtype in zip(data_column_names, data_column_dtypes)}
-        self.data = pd.DataFrame({c: pd.Series(dtype=dt) for c, dt in data_column_info.items()})
+        self.data_column_names = data_column_names
+        self.data_column_dtypes = data_column_dtypes
+        # data_column_info = {col_name : col_dtype for col_name, col_dtype in zip(data_column_names, data_column_dtypes)}
+        self.data = []
+        # self.data_df = pd.DataFrame({c: pd.Series(dtype=dt) for c, dt in data_column_info.items()})
 
     def log_data(self, data_pt:dict) -> None:
         """
@@ -64,7 +67,7 @@ class RLSamplesCollector:
         Return:
             (None)
         """
-        self.data = self.data.append(data_pt, ignore_index=True)
+        self.data.append(data_pt)
 
     def export_data(self, path:str, file_name:str) -> None:
         """
@@ -78,7 +81,8 @@ class RLSamplesCollector:
         Return:
             (None)
         """
-        self.data.to_csv(path + file_name, index = False)
+        data_df = pd.DataFrame(self.data, columns = self.data_column_names)
+        data_df.to_csv(os.path.join(path, file_name), index = False)
 
     def write_metadata(self, path:str, file_name:str) -> None:
         """
