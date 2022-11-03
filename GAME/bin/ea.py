@@ -4,7 +4,7 @@
 
 import random
 
-from GAME.bin.intertask_mappings import IntertaskMapping
+from GAME.bin.intertask_mappings import *
 
 class GAME:
     """Genetic Algorithms for Mapping Evolution evolves a population of inter-task mapping for transfer learning in reinforcement learning."""
@@ -37,26 +37,14 @@ class GAME:
         self.crossover_strat = crossover_strat
         self.max_evol_iter = max_evol_iter
 
-        # initialize initial population
-
-        # evaluate initial population's fitness
-
-        # main evolution loop
-        # select parents for crossover and generate offspring
-
-        # mutate offspring
-
-        # evaluate offspring fitness
-
-        # replace population with offspring
-
-    def init_pop(self, strategy:str='random'):
+    def init_pop(self, strategy:str='random') -> None:
         """
         Description:
             Initializes a population of inter-task mappings.
 
         Arguments:
-            
+            strategy: the strategy used to initialize the population.
+                'random': uniformly initialize the individual chromosomes.
 
         Return:
             (None)
@@ -73,6 +61,39 @@ class GAME:
                 population.append(intertask_mapping_individual)
         # save initial population
         self.population = population
+
+    def select_parents(self, num_pairs:int, strategy='tournament', tournament_sel_k:int=None) -> list:
+        """
+        Description:
+            Select parents for crossover according to some strategy.
+
+        Arguments:
+            num_pairs: the number of pairs of parents to select. Determines the number of generated offspring.
+            strategy: the strategy used to crossover the parents.
+                'tournament': tournament selection
+
+        Return:
+            (list) a list containing pairs of parents for reproduction.
+        """
+        parents = []
+        if strategy == 'tournament':
+            parents = random.choices(ea.population, k = tournament_sel_k)
+            parents = sorted(parents, key=lambda agent: agent.fitness, reverse=True)
+        
+        return parents
+
+    def crossover(self, strategy='one-pt') -> None:
+        """
+        Description:
+            Generate a number of offspring using certain crossover strategies.
+
+        Arguments:
+            strategy: the strategy used to crossover the parents.
+                'one-pt': one-point crossover.
+
+        Return:
+            (None)
+        """
 
 if __name__ == '__main__':
     MC2D_states = ['x_position', 'x_velocity']
@@ -91,6 +112,43 @@ if __name__ == '__main__':
     crossover_strat = 'tournament'
     max_evol_iter = 1000
 
+    # helper variables
+    # transforming src data
+    src_data_path = "C:\\Users\\minhh\\Documents\\JHU\\Fall 2022\\Evolutionary and Swarm Intelligence\\src\\GAME\\output\\10242022 Initial Samples Collection for 2D MC\\test.csv"
+    src_data_df = pd.read_csv(src_data_path, index_col = False)
+    transformed_df_col_names = ['Current_x_position', 'Current_x_velocity', 'Current_y_position', "Current_y_velocity",
+    'Current_action', 'Next_x_position', 'Next_x_velocity', 'Next_y_position', 'Next_y_velocity']
+    # evaluation using networks
+    network_folder_path = "C:\\Users\\minhh\\Documents\\JHU\\Fall 2022\\Evolutionary and Swarm Intelligence\\src\\GAME\\pickle\\11012022 3DMC Neural Nets\\"
+    eval_networks = EvaluationNetworks(network_folder_path)
+    current_state_cols = ['Current_x_position', 'Current_x_velocity', 'Current_y_position', "Current_y_velocity"]
+    next_state_cols = ['Next_x_position', 'Next_x_velocity', 'Next_y_position', 'Next_y_velocity']
+    numerical_actions = [0, 1, 2, 3, 4]
+
     ea = GAME(src_state_var, src_actions, target_state_var, target_actions, init_pop_size, crossover_rate, mutation_rate, crossover_strat, max_evol_iter)
+    # initialize initial population
     ea.init_pop()
+    # evaluate initial population's fitness
+    for mapping in ea.population:
+        # use mapping to create transformed df
+        transformed_df = transform_source_dataset(src_data_df, mapping, transformed_df_col_names, numerical_actions)
+        # evaluate mapping using the transformed df
+        eval_scores = evaluate_mapping(mapping, transformed_df, eval_networks, current_state_cols, next_state_cols, numerical_actions)
+        # consolidate into one single score
+        mapping.fitness = parse_mapping_eval_scores(eval_scores)
+        # print debug info
+        print('State mapping: {}, Action mapping: {}, Fitness: {}'.format(mapping.state_mapping, mapping.action_mapping, mapping.fitness))
+
+    # main evolution loop
+    for gen in ea.max_evol_iter:
+        # select parents for crossover
+        parents = ea.select_parents()
+        # generate offspring using selected parents
+
+        # mutate offspring
+
+        # evaluate offspring fitness
+
+        # replace population with offspring
+    
     print('Done!')
