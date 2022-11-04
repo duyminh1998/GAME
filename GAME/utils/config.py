@@ -80,6 +80,9 @@ def config() -> dict:
     config['action_transition_df_col_name'] = 'Current-action'
     config['next_action_transition_df_col_name'] = 'Next-action'
     # 2DMC
+    config['2DMC_current_state_transition_df_col_names'] = ['Current-x_position', 'Current-x_velocity']
+    config['2DMC_next_state_transition_df_col_names'] = ['Next-x_position', 'Next-x_velocity']
+    config['2DMC_full_transition_df_col_names'] = config['2DMC_current_state_transition_df_col_names'] + [config['action_transition_df_col_name']] + config['2DMC_next_state_transition_df_col_names']
     
     # 3DMC
     config['3DMC_current_state_transition_df_col_names'] = ['Current-x_position', 'Current-x_velocity', 'Current-y_position', "Current-y_velocity"]

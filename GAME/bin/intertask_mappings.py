@@ -261,9 +261,9 @@ if __name__ == "__main__":
     target_action_names = config_data['MC3D_action_names']
     target_action_values = config_data['MC3D_action_values']
 
-    mapping = IntertaskMapping([0, 1, 0, 1], [1, 0, 2, 2, 2], src_state_var_names, src_action_names, target_state_var_names, target_action_names)
+    mapping = IntertaskMapping([1, 0, 1, 0], [1, 0, 2, 2, 2], src_state_var_names, src_action_names, target_state_var_names, target_action_names)
 
-    src_data_path = config_data['output_path'] + "10242022 Initial Samples Collection for 2D MC\\test.csv"
+    src_data_path = config_data['output_path'] + "11032022 2DMC Sample Collection 100 Episodes with Training\\2DMC_100_episodes_sample_data.csv"
     src_data_df = pd.read_csv(src_data_path, index_col = False)
     transformed_df_col_names = config_data['3DMC_full_transition_df_col_names']
 

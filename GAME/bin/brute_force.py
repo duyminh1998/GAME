@@ -3,7 +3,7 @@
 # Purpose: This module contains the brute force approach to generating an inter-task mapping.
 
 from GAME.bin.intertask_mappings import *
-# from GAME.utils.config import config
+from GAME.utils.config import config
 
 from itertools import product
 
@@ -35,6 +35,8 @@ class MASTER:
             target_state_var_names: the name of the state variables in the target task.
             target_action_names: the name of the actions in the target task.
             target_action_values: the numerical value of the actions in the target task.
+            src_task_data_folder_and_filename: the folder and filename of the transition samples in the source task.
+            neural_networks_folder: the folder containing the neural networks being used for evaluation.
             keep_top_k: return the top k intertask mapping individuals.
             eval_metric: the metric to determine the fitness of individuals.
                 'avg_fitness': average the fitness values across the predicted states and actions.
@@ -59,17 +61,17 @@ class MASTER:
         self.target_action_codes = {target_action : id for target_action, id in zip(target_action_names, target_action_values)}
 
         # load config data
-        # self.config = config()
+        self.config_data = config()
 
         # transforming src data for mapping evaluation
-        src_data_path = config['output_path'] + src_task_data_folder_and_filename
+        src_data_path = self.config_data['output_path'] + src_task_data_folder_and_filename
         self.src_data_df = pd.read_csv(src_data_path, index_col = False)
-        self.transformed_df_col_names = config['3DMC_full_transition_df_col_names']
-        self.transformed_df_current_state_cols = config['3DMC_current_state_transition_df_col_names']
-        self.transformed_df_next_state_cols = config['3DMC_next_state_transition_df_col_names']
+        self.transformed_df_col_names = self.config_data['3DMC_full_transition_df_col_names']
+        self.transformed_df_current_state_cols = self.config_data['3DMC_current_state_transition_df_col_names']
+        self.transformed_df_next_state_cols = self.config_data['3DMC_next_state_transition_df_col_names']
 
         # evaluation using networks
-        network_folder_path = config['pickle_path'] + neural_networks_folder
+        network_folder_path = self.config_data['pickle_path'] + neural_networks_folder
         self.eval_networks = EvaluationNetworks(network_folder_path)
 
     def evolve(self) -> list:
@@ -83,10 +85,11 @@ class MASTER:
         Return:
             (list) a list of the most fit intertask mappings.
         """
+        str_builder = ''
         population = []
         # enumerate all possible intertask mappings
         for state_mapping in product(self.src_state_codes.values(), repeat = len(self.target_state_var_names)): # all possible state mappings
-            for action_mapping in product(self.src_action_codes.values(), repeat = len(self.target_state_var_names)): # all possible action mappings
+            for action_mapping in product(self.src_action_codes.values(), repeat = len(self.target_action_names)): # all possible action mappings
                 mapping = IntertaskMapping(state_mapping, action_mapping, self.src_state_var_names, self.src_action_names, self.target_state_var_names, self.target_action_names)
                 # evaluate the mapping
                 # use mapping to create transformed df
@@ -96,27 +99,28 @@ class MASTER:
                 # consolidate into one single score
                 mapping.fitness = parse_mapping_eval_scores(eval_scores)
                 # print debug info
-                print('State mapping: {}, Action mapping: {}, Fitness: {}'.format(mapping.state_mapping, mapping.action_mapping, mapping.fitness))
+                # print('State mapping: {}, Action mapping: {}, Fitness: {}'.format(mapping.state_mapping, mapping.action_mapping, mapping.fitness))
+                str_builder += 'State mapping: {}, Action mapping: {}, Fitness: {}'.format(mapping.state_mapping, mapping.action_mapping, mapping.fitness) + '\n'
                 # save mapping to population
                 population.append(mapping)
 
+        with open('test.txt', 'w') as f:
+            f.write(str_builder)
         # return the k individuals with the highest fitness
         return sorted(population, key=lambda agent: agent.fitness, reverse=True)[:self.keep_top_k]
 
 if __name__ == "__main__":
+    from GAME.utils.config import config
 
-    MC2D_states = ['x_position', 'x_velocity']
-    MC3D_states = ['x_position', 'x_velocity', 'y_position', 'y_velocity']
-    MC2D_actions = ['Left', 'Neutral', 'Right']
-    MC3D_actions = ['Neutral', 'West', 'East', 'South', 'North']
+    config_data = config()
 
-    src_state_var_names = MC2D_states
-    src_action_names = MC2D_actions
-    src_action_values = [0, 1, 2]
-    target_state_var_names = MC3D_states
-    target_action_names = MC3D_actions
-    target_action_values = [0, 1, 2, 3, 4]
-    src_task_data_folder_and_filename = "10242022 Initial Samples Collection for 2D MC\\test.csv"
+    src_state_var_names = config_data['MC2D_state_names']
+    src_action_names = config_data['MC2D_action_names']
+    src_action_values = config_data['MC2D_action_values']
+    target_state_var_names = config_data['MC3D_state_names']
+    target_action_names = config_data['MC3D_action_names']
+    target_action_values = config_data['MC3D_action_values']
+    src_task_data_folder_and_filename = "11032022 2DMC Sample Collection 100 Episodes with Training\\2DMC_100_episodes_sample_data.csv"
     neural_networks_folder = "11012022 3DMC Neural Nets\\"
 
     keep_top_k = 1
@@ -125,3 +129,4 @@ if __name__ == "__main__":
     master = MASTER(src_state_var_names, src_action_names, src_action_values, target_state_var_names, target_action_names, target_action_values, 
     src_task_data_folder_and_filename, neural_networks_folder, keep_top_k, eval_metric)
     final_mappings = master.evolve()
+    print(final_mappings)
