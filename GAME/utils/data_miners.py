@@ -310,7 +310,6 @@ class RCSLogMiner:
         """
         transition_data = []
         previous_keeper = -1
-        previous_action = -1
         for index, row in self.rcg_df.iterrows():
             # get the keeper and taker positions
             keeper_positions = [(row['player_l{}_x'.format(id)], row['player_l{}_y'.format(id)]) for id in self.keeper_ids]
@@ -325,19 +324,17 @@ class RCSLogMiner:
             # save the current closest keeper
             if closest_distance_to_ball <= self.ball_kickable_dist and ball_velocity <= 2:
                 previous_keeper = closest_keeper_idx
-                previous_action = -1
             # reset the previous_keeper if the ball velocity is zero, indicating that the episode has ended
             if row['ball_vx'] == 0 and row['ball_vy'] == 0:
                 previous_keeper = -1
-                previous_action = -1
             if previous_keeper != -1 and int(cycle) < self.rcg_df_len - 1: # we only fill information if a keeper actually has the ball
                 # save the current state variables
                 current_state = self.build_state_data_from_rcg_row(keeper_positions, taker_positions, previous_keeper)
                 # get a list of teammate idxes sorted according to distance to the keeper with the ball
                 sorted_tm_idxes = self.get_sorted_tm_idx_to_cur(keeper_positions[previous_keeper], keeper_positions)
                 action = self.parse_action(previous_keeper + 1, cycle, sorted_tm_idxes)
-                if previous_action == -1 or (action != -1 and action != previous_action): # save the previous action of the previous keeper
-                    previous_action = action
+                # if previous_action == -1 or (action != -1 and action != previous_action): # save the previous action of the previous keeper
+                #     previous_action = action
                 # print('Cycle: {}, Keeper {}, Action: {}'.format(cycle, closest_keeper_idx + 1, action))
                 # get next state preemptively
                 next_keeper_positions =  [(self.rcg_df.at[index + 1, 'player_l{}_x'.format(id)], self.rcg_df.at[index + 1, 'player_l{}_y'.format(id)]) for id in self.keeper_ids]
@@ -345,7 +342,7 @@ class RCSLogMiner:
                 next_state = self.build_state_data_from_rcg_row(next_keeper_positions, next_taker_positions, previous_keeper)
                 
                 # append (s, a, s') to dataframe
-                concatenated_data = [cycle, previous_keeper + 1] + current_state + [previous_action] + next_state
+                concatenated_data = [cycle, previous_keeper + 1] + current_state + [action] + next_state
                 transition_data.append(concatenated_data)
                 # data_dict = {data_col : data for data_col, data in zip(self.transition_df.columns, concatenated_data)}
                 # self.transition_df.append(data_dict, ignore_index = True)

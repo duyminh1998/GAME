@@ -1,5 +1,8 @@
 #!/bin/bash
 
+iterations=1
+seconds=600
+
 while getopts i:s: flag
 do
     case "${flag}" in
@@ -15,4 +18,6 @@ do
     sleep $seconds
     ./kill.sh
     sleep 30
+    ../rcss-log-extractor/bin/rcssLogExtractor --in logs --out logs
+    sleep 20
 done
