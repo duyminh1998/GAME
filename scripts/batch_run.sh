@@ -18,6 +18,6 @@ do
     sleep $seconds
     ./kill.sh
     sleep 30
-    ../rcss-log-extractor/bin/rcssLogExtractor --in logs --out logs
-    sleep 20
 done
+
+../rcss-log-extractor/bin/rcssLogExtractor --in logs --out logs

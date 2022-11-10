@@ -1,6 +1,6 @@
 /output
 /pickle
-/data
+#/data
 /logs
 /.vscode
 

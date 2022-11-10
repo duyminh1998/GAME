@@ -23,6 +23,8 @@ def config() -> dict:
     config['output_path'] = config['GAME_path'] + "output\\"
     # path to the pickled objects
     config['pickle_path'] = config['GAME_path'] + "pickle\\"
+    # path to data folder
+    config['data_path'] = config['GAME_path'] + "data\\"
 
     # task and environment variables
     # 2D Mountain Car
