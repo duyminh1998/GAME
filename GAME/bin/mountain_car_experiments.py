@@ -35,7 +35,8 @@ def MountainCar3DExperiment(
     eval_data_collector=None,
     env_name:str='MountainCar3D-v0',
     env_max_steps:int=5000,
-    rd_seed:int=42
+    rd_seed:int=42,
+    transfer:bool=False
 ):
     # make the environment
     env = gym.make(env_name)
@@ -45,11 +46,18 @@ def MountainCar3DExperiment(
     # evaluation metric
     average_steps_per_trial = [] # eval metric
 
+    base_save_agent_filename = save_agent_filename
+
     for trial in range(num_trials):
         # reset the agent each trial
         agent = base_agent_class(base_agent.alpha, base_agent.lamb, base_agent.gamma, base_agent.method, base_agent.epsilon, base_agent.num_of_tilings, base_agent.max_size)
+        if transfer:
+            agent.weights = base_agent.weights
         # save total steps for each trial
         total_steps = 0
+        # save agent data
+        if save_agent:
+            save_agent_filename = 'trial{}_'.format(trial) + base_save_agent_filename
         for ep in range(max_episodes_per_trial):
             steps = 0
             while True:
@@ -180,11 +188,16 @@ def MountainCar2DExperiment(
     # evaluation metric
     average_steps_per_trial = [] # eval metric
 
+    base_save_agent_filename = save_agent_filename
+
     for trial in range(num_trials):
         # reset the agent each trial
         agent = base_agent_class(base_agent.alpha, base_agent.lamb, base_agent.gamma, base_agent.method, base_agent.epsilon, base_agent.num_of_tilings, base_agent.max_size)
         # save total steps for each trial
         total_steps = 0
+        # save agent info
+        if save_agent:
+            save_agent_filename = 'trial{}_'.format(trial) + base_save_agent_filename
         for ep in range(max_episodes_per_trial):
             steps = 0
             while True:
@@ -289,7 +302,7 @@ if __name__ == "__main__":
     lamb = 0.95
     gamma = 1
     method = 'replacing'
-    epsilon = 1
+    epsilon = 0
     num_of_tilings = 8
     max_size = 2048
     decay_agent_eps = None
@@ -309,11 +322,11 @@ if __name__ == "__main__":
     # whether to save sample transition data
     agent_info = SarsaLambdaAgentInfo(alpha, lamb, gamma, method, epsilon, num_of_tilings, max_size)
     experiment_info = ExperimentInfo(env_name, env_max_steps, 42, rd_seed, 'SarsaLambda')
-    save_sample_data = True
+    save_sample_data = False
     save_sample_every = 25
     sample_data_col_names = ['Trial', 'Episode', 'Step']
     sample_data_col_names = sample_data_col_names + config_data['3DMC_current_state_transition_df_col_names']
-    sample_data_col_names = sample_data_col_names + [config_data['Current-action'], 'Reward']
+    sample_data_col_names = sample_data_col_names + [config_data['action_transition_df_col_name'], 'Reward']
     sample_data_col_names = sample_data_col_names + config_data['3DMC_next_state_transition_df_col_names']
     sample_data_col_names = sample_data_col_names + [config_data['next_action_transition_df_col_name']]
     sample_data_column_dtypes = ['int', 'int', 'int', 'float', 'float', 'float', 'float', 'int', 'int', 'float', 'float', 'float', 'float', 'int']

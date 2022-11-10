@@ -56,7 +56,7 @@ def config() -> dict:
         'dist(K1,C)',
         'dist(K1,K2)',
         'dist(K1,K3)',
-        'dist(K1,K4',
+        'dist(K1,K4)',
         'dist(K1,T1)',
         'dist(K1,T2)',
         'dist(K1,T3)',
@@ -88,14 +88,46 @@ def config() -> dict:
     config['3DMC_current_state_transition_df_col_names'] = ['Current-x_position', 'Current-x_velocity', 'Current-y_position', "Current-y_velocity"]
     config['3DMC_next_state_transition_df_col_names'] = ['Next-x_position', 'Next-x_velocity', 'Next-y_position', 'Next-y_velocity']
     config['3DMC_full_transition_df_col_names'] = config['3DMC_current_state_transition_df_col_names'] + [config['action_transition_df_col_name']] + config['3DMC_next_state_transition_df_col_names']
+    
     # 3v2
+    config['3v2_current_state_transition_df_col_names'] = [
+        'Current-dist(K1,C)',
+        'Current-dist(K1,K2)',
+        'Current-dist(K1,K3)',
+        'Current-dist(K1,T1)',
+        'Current-dist(K1,T2)',
+        'Current-dist(K2,C)',
+        'Current-dist(K3,C)',
+        'Current-dist(T1,C)',
+        'Current-dist(T2,C)',
+        'Current-Min(dist(K2,T1),dist(K2,T2))',
+        'Current-Min(dist(K3,T1),dist(K3,T2))',
+        'Current-Min(ang(K2,K1,T1),ang(K2,K1,T2))',
+        'Current-Min(ang(K3,K1,T1),ang(K3,K1,T2))'
+    ]
+    config['3v2_next_state_transition_df_col_names'] = [
+        'Next-dist(K1,C)',
+        'Next-dist(K1,K2)',
+        'Next-dist(K1,K3)',
+        'Next-dist(K1,T1)',
+        'Next-dist(K1,T2)',
+        'Next-dist(K2,C)',
+        'Next-dist(K3,C)',
+        'Next-dist(T1,C)',
+        'Next-dist(T2,C)',
+        'Next-Min(dist(K2,T1),dist(K2,T2))',
+        'Next-Min(dist(K3,T1),dist(K3,T2))',
+        'Next-Min(ang(K2,K1,T1),ang(K2,K1,T2))',
+        'Next-Min(ang(K3,K1,T1),ang(K3,K1,T2))'
+    ]
+    config['3v2_full_transition_df_col_names'] = config['3v2_current_state_transition_df_col_names'] + [config['action_transition_df_col_name']] + config['3v2_next_state_transition_df_col_names']
 
     # 4v3
     config['4v3_current_state_transition_df_col_names'] = [
         'Current-dist(K1,C)',
         'Current-dist(K1,K2)',
         'Current-dist(K1,K3)',
-        'Current-dist(K1,K4',
+        'Current-dist(K1,K4)',
         'Current-dist(K1,T1)',
         'Current-dist(K1,T2)',
         'Current-dist(K1,T3)',
@@ -116,7 +148,7 @@ def config() -> dict:
         'Next-dist(K1,C)',
         'Next-dist(K1,K2)',
         'Next-dist(K1,K3)',
-        'Next-dist(K1,K4',
+        'Next-dist(K1,K4)',
         'Next-dist(K1,T1)',
         'Next-dist(K1,T2)',
         'Next-dist(K1,T3)',

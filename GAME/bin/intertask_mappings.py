@@ -59,6 +59,9 @@ class IntertaskMapping:
         self.action_mapping = action_mapping
         self.fitness = None
 
+        # assign a unique ID to the offspring as a function of its state and action mapping
+        self.ID = self.create_ID()
+
         # assign meaning to the state and action mappings
         # note that the map goes from the target to the source
         self.decoded_state_mapping = {target_state_var_names[i] : src_state_var_names[j] for i, j in zip(range(len(target_state_var_names)), state_mapping)}
@@ -67,8 +70,22 @@ class IntertaskMapping:
         for src_action in range(len(src_action_names)):
             self.multiple_mapped_actions.append([idx for idx in range(len(action_mapping)) if action_mapping[idx] == src_action])
 
+    def create_ID(self) -> str:
+        """
+        Description:
+            Creates an ID for the mapping as a function of its state and action mapping.
+
+        Arguments:
+            None
+
+        Return:
+            (None)
+        """
+        return "".join(str(s) for s in self.state_mapping) + "".join(str(a) for a in self.action_mapping)
+
     def __str__(self) -> str:
-        return 'State mapping: {}, Action mapping: {}'.format(self.decoded_state_mapping.values(), self.decoded_action_mapping.values())
+        return 'ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}'.format(self.ID, self.state_mapping, self.action_mapping, self.fitness)
+        # return 'State mapping: {}, Action mapping: {}'.format(self.decoded_state_mapping.values(), self.decoded_action_mapping.values())
 
 class EvaluationNetworks:
     """This class contains all the neural networks that are used to evaluate an intertask mapping's transformed data."""
@@ -223,7 +240,7 @@ def evaluate_mapping(
             target = src_df_by_action[target_name]
             eval_mlp = eval_networks.get_network(action, target_name)
             eval_score = eval_mlp.score(features, target)
-            eval_scores['{}_{}'.format(action, target_name)] = eval_score
+            eval_scores['{}--{}'.format(action, target_name)] = eval_score
     # return the dictionary of raw scores
     return eval_scores
 

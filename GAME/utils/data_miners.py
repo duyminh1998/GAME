@@ -159,6 +159,7 @@ class RCSLogMiner:
         self.draw_logs = {}
         for i in range(1, num_keepers + 1):
             dl_df, kp_idx = self.parse_draw_log(os.path.join(logs_folderpath, 'k{}-draw.log'.format(i)))
+            print(kp_idx)
             if kp_idx == -1:
                 raise ValueError("I could not identify the keeper in the k{}-draw.log file.".format(i))
             self.draw_logs[kp_idx] = dl_df
@@ -254,6 +255,48 @@ class RCSLogMiner:
                 min_player_id = player_idx
         return min_player_id, min_dist
 
+    # def parse_rcg_and_fill_trans_df(self) -> None:
+    #     """
+    #     Description:
+    #         Fills the transition dataframe with data from the rcg file.
+
+    #     Arguments:
+    #         None
+
+    #     Return:
+    #         (None)
+    #     """
+    #     transition_data = []
+    #     for index, row in self.rcg_df.iterrows():
+    #         # get the keeper and taker positions
+    #         keeper_positions = [(row['player_l{}_x'.format(id)], row['player_l{}_y'.format(id)]) for id in self.keeper_ids]
+    #         taker_positions = [(row['player_l{}_x'.format(id)], row['player_l{}_y'.format(id)]) for id in self.taker_ids]
+    #         # get the ball position
+    #         ball_loc = (row['ball_x'], row['ball_y'])
+    #         # find the closest keeper to the ball
+    #         closest_keeper_idx, closest_distance_to_ball = self.get_closest_to_ball(keeper_positions, ball_loc)
+    #         ball_velocity = math.sqrt(row['ball_vx']**2 + row['ball_vy']**2)
+    #         # mark the cycle
+    #         cycle = row['show_time']
+    #         if closest_distance_to_ball <= self.ball_kickable_dist and ball_velocity <= 2 and int(cycle) < self.rcg_df_len - 1: # we only fill information if a keeper actually has the ball
+    #             # save the current state variables
+    #             current_state = self.build_state_data_from_rcg_row(keeper_positions, taker_positions, closest_keeper_idx)
+    #             # get a list of teammate idxes sorted according to distance to the keeper with the ball
+    #             sorted_tm_idxes = self.get_sorted_tm_idx_to_cur(keeper_positions[closest_keeper_idx], keeper_positions)
+    #             action = self.parse_action(closest_keeper_idx + 1, cycle, sorted_tm_idxes)
+    #             # print('Cycle: {}, Keeper {}, Action: {}'.format(cycle, closest_keeper_idx + 1, action))
+    #             # get next state preemptively
+    #             next_keeper_positions =  [(self.rcg_df.at[index + 1, 'player_l{}_x'.format(id)], self.rcg_df.at[index + 1, 'player_l{}_y'.format(id)]) for id in self.keeper_ids]
+    #             next_taker_positions = [(self.rcg_df.at[index + 1, 'player_l{}_x'.format(id)], self.rcg_df.at[index + 1, 'player_l{}_y'.format(id)]) for id in self.taker_ids]
+    #             next_state = self.build_state_data_from_rcg_row(next_keeper_positions, next_taker_positions, closest_keeper_idx)
+                
+    #             # append (s, a, s') to dataframe
+    #             concatenated_data = [cycle, closest_keeper_idx + 1] + current_state + [action] + next_state
+    #             transition_data.append(concatenated_data)
+    #             # data_dict = {data_col : data for data_col, data in zip(self.transition_df.columns, concatenated_data)}
+    #             # self.transition_df.append(data_dict, ignore_index = True)
+    #     self.transition_df = pd.DataFrame(transition_data, columns = self.transition_df_col_names)
+
     def parse_rcg_and_fill_trans_df(self) -> None:
         """
         Description:
@@ -266,6 +309,8 @@ class RCSLogMiner:
             (None)
         """
         transition_data = []
+        previous_keeper = -1
+        previous_action = -1
         for index, row in self.rcg_df.iterrows():
             # get the keeper and taker positions
             keeper_positions = [(row['player_l{}_x'.format(id)], row['player_l{}_y'.format(id)]) for id in self.keeper_ids]
@@ -277,20 +322,30 @@ class RCSLogMiner:
             ball_velocity = math.sqrt(row['ball_vx']**2 + row['ball_vy']**2)
             # mark the cycle
             cycle = row['show_time']
-            if closest_distance_to_ball <= self.ball_kickable_dist and ball_velocity <= 2 and int(cycle) < self.rcg_df_len - 1: # we only fill information if a keeper actually has the ball
+            # save the current closest keeper
+            if closest_distance_to_ball <= self.ball_kickable_dist and ball_velocity <= 2:
+                previous_keeper = closest_keeper_idx
+                previous_action = -1
+            # reset the previous_keeper if the ball velocity is zero, indicating that the episode has ended
+            if row['ball_vx'] == 0 and row['ball_vy'] == 0:
+                previous_keeper = -1
+                previous_action = -1
+            if previous_keeper != -1 and int(cycle) < self.rcg_df_len - 1: # we only fill information if a keeper actually has the ball
                 # save the current state variables
-                current_state = self.build_state_data_from_rcg_row(keeper_positions, taker_positions, closest_keeper_idx)
+                current_state = self.build_state_data_from_rcg_row(keeper_positions, taker_positions, previous_keeper)
                 # get a list of teammate idxes sorted according to distance to the keeper with the ball
-                sorted_tm_idxes = self.get_sorted_tm_idx_to_cur(keeper_positions[closest_keeper_idx], keeper_positions)
-                action = self.parse_action(closest_keeper_idx + 1, cycle, sorted_tm_idxes)
+                sorted_tm_idxes = self.get_sorted_tm_idx_to_cur(keeper_positions[previous_keeper], keeper_positions)
+                action = self.parse_action(previous_keeper + 1, cycle, sorted_tm_idxes)
+                if previous_action == -1 or (action != -1 and action != previous_action): # save the previous action of the previous keeper
+                    previous_action = action
                 # print('Cycle: {}, Keeper {}, Action: {}'.format(cycle, closest_keeper_idx + 1, action))
                 # get next state preemptively
                 next_keeper_positions =  [(self.rcg_df.at[index + 1, 'player_l{}_x'.format(id)], self.rcg_df.at[index + 1, 'player_l{}_y'.format(id)]) for id in self.keeper_ids]
                 next_taker_positions = [(self.rcg_df.at[index + 1, 'player_l{}_x'.format(id)], self.rcg_df.at[index + 1, 'player_l{}_y'.format(id)]) for id in self.taker_ids]
-                next_state = self.build_state_data_from_rcg_row(next_keeper_positions, next_taker_positions, closest_keeper_idx)
+                next_state = self.build_state_data_from_rcg_row(next_keeper_positions, next_taker_positions, previous_keeper)
                 
                 # append (s, a, s') to dataframe
-                concatenated_data = [cycle, closest_keeper_idx + 1] + current_state + [action] + next_state
+                concatenated_data = [cycle, previous_keeper + 1] + current_state + [previous_action] + next_state
                 transition_data.append(concatenated_data)
                 # data_dict = {data_col : data for data_col, data in zip(self.transition_df.columns, concatenated_data)}
                 # self.transition_df.append(data_dict, ignore_index = True)
@@ -427,18 +482,16 @@ class RCSLogMiner:
         self.transition_df.to_csv(os.path.join(path, file_name), index = False)
 
 if __name__ == '__main__':
+    from GAME.utils.config import config
+    config_data = config()
+
     test = 1
     if test == 0:
-        rcg_csv_filepath = "C:\\Users\\minhh\\Documents\\JHU\\Fall 2022\\Evolutionary and Swarm Intelligence\\src\\GAME\\logs\\202210280159-UbuntuXenial\\202210280159-UbuntuXenial.rcg.csv"
-        logs_folderpath = "C:\\Users\\minhh\\Documents\\JHU\\Fall 2022\\Evolutionary and Swarm Intelligence\\src\\GAME\\logs\\202210280159-UbuntuXenial"
-        transition_df_col_names = [
-            'Cycle', 'ID_kp_w_ball', 'dist(K1,C)', 'dist(K1,K2)', 'dist(K1,K3)', 'dist(K1,T1)', 'dist(K1,T2)',
-            'dist(K2,C)', 'dist(K3,C)', 'dist(T1,C)', 'dist(T2,C)', 'Min(dist(K2,T1),dist(K2,T2))',
-            'Min(dist(K3,T1),dist(K3,T2))', 'Min(ang(K2,K1,T1),ang(K2,K1,T2))', 'Min(ang(K3,K1,T1),ang(K3,K1,T2))',
-            'Action', 'dist(K1,C)_next', 'dist(K1,K2)_next', 'dist(K1,K3)_next', 'dist(K1,T1)_next', 'dist(K1,T2)_next', 
-            'dist(K2,C)_next', 'dist(K3,C)_next', 'dist(T1,C)_next', 'dist(T2,C)_next', 'Min(dist(K2,T1),dist(K2,T2))_next',
-            'Min(dist(K3,T1),dist(K3,T2))_next', 'Min(ang(K2,K1,T1),ang(K2,K1,T2))_next', 'Min(ang(K3,K1,T1),ang(K3,K1,T2))_next'
-        ]
+        experiment_name = "202211071939-UbuntuXenialSmall"
+        rcg_csv_filepath = config_data['logs_path'] + "{}\\{}.rcg.csv".format(experiment_name, experiment_name)
+        logs_folderpath = config_data['logs_path'] + experiment_name
+        transition_df_col_names = ['Cycle', 'ID_kp_w_ball']
+        transition_df_col_names = transition_df_col_names + config_data['3v2_full_transition_df_col_names']
         transition_df_col_dtypes = [
             'int', 'int', 'float', 'float', 'float', 'float', 'float',
             'float', 'float', 'float', 'float', 'float',
@@ -452,59 +505,19 @@ if __name__ == '__main__':
         num_state_vars = 13
         num_actions = 3
         log_miner = RCSLogMiner(rcg_csv_filepath, logs_folderpath, transition_df_col_names, transition_df_col_dtypes, num_keepers, num_takers, num_state_vars, num_actions)
-        csv_out_path = "C:\\Users\\minhh\\Documents\\JHU\\Fall 2022\\Evolutionary and Swarm Intelligence\\src\\GAME\\output\\10292022 Initial Log Extraction for Keepaway"
+        csv_out_path = config_data['output_path'] + "11072022 3v2 RCS Sample Data Collection"
         csv_out_name = 'keepaway_3v2_transitions.csv'
         log_miner.export_data(csv_out_path, csv_out_name)
     elif test == 1:
-        rcg_csv_filepath = "C:\\Users\\minhh\\Documents\\JHU\\Fall 2022\\Evolutionary and Swarm Intelligence\\src\\GAME\\logs\\202210290434-UbuntuXenial\\202210290434-UbuntuXenial.rcg.csv"
-        logs_folderpath = "C:\\Users\\minhh\\Documents\\JHU\\Fall 2022\\Evolutionary and Swarm Intelligence\\src\\GAME\\logs\\202210290434-UbuntuXenial"
+        experiment_name = "202211071930-UbuntuXenialSmall"
+        rcg_csv_filepath = config_data['logs_path'] + "{}\\{}.rcg.csv".format(experiment_name, experiment_name)
+        logs_folderpath = config_data['logs_path'] + experiment_name
         num_keepers = 4
         num_takers = 3
         num_state_vars = 19
         num_actions = 4
-        transition_df_col_names = [
-            'Cycle',
-            'ID_kp_w_ball',
-            'dist(K1,C)',
-            'dist(K1,K2)',
-            'dist(K1,K3)',
-            'dist(K1,K4',
-            'dist(K1,T1)',
-            'dist(K1,T2)',
-            'dist(K1,T3)',
-            'dist(K2,C)',
-            'dist(K3,C)',
-            'dist(K4,C)',
-            'dist(T1,C)',
-            'dist(T2,C)',
-            'dist(T3,C)',
-            'Min(dist(K2,T1),dist(K2,T2),dist(K2,T3))',
-            'Min(dist(K3,T1),dist(K3,T2),dist(K3,T3))',
-            'Min(dist(K4,T1),dist(K4,T2),dist(K4,T3))',
-            'Min(ang(K2,K1,T1),ang(K2,K1,T2),ang(K2,K1,T3))',
-            'Min(ang(K3,K1,T1),ang(K3,K1,T2),ang(K3,K1,T3))',
-            'Min(ang(K4,K1,T1),ang(K4,K1,T2),ang(K4,K1,T3))',
-            'Action',
-            'dist(K1,C)_next',
-            'dist(K1,K2)_next',
-            'dist(K1,K3)_next',
-            'dist(K1,K4_next',
-            'dist(K1,T1)_next',
-            'dist(K1,T2)_next',
-            'dist(K1,T3)_next',
-            'dist(K2,C)_next',
-            'dist(K3,C)_next',
-            'dist(K4,C)_next',
-            'dist(T1,C)_next',
-            'dist(T2,C)_next',
-            'dist(T3,C)_next',
-            'Min(dist(K2,T1),dist(K2,T2),dist(K2,T3))_next',
-            'Min(dist(K3,T1),dist(K3,T2),dist(K3,T3))_next',
-            'Min(dist(K4,T1),dist(K4,T2),dist(K4,T3))_next',
-            'Min(ang(K2,K1,T1),ang(K2,K1,T2),ang(K2,K1,T3))_next',
-            'Min(ang(K3,K1,T1),ang(K3,K1,T2),ang(K3,K1,T3))_next',
-            'Min(ang(K4,K1,T1),ang(K4,K1,T2),ang(K4,K1,T3))_next'
-        ]
+        transition_df_col_names = ['Cycle', 'ID_kp_w_ball']
+        transition_df_col_names = transition_df_col_names + config_data['4v3_full_transition_df_col_names']
         transition_df_col_dtypes = [
             'int', 'int', 'float', 'float', 'float', 'float', 'float', 'float', 'float', 'float', 'float', 'float',
              'float', 'float', 'float', 'float', 'float', 'float', 'float', 'float', 'float', 'int',
@@ -512,6 +525,6 @@ if __name__ == '__main__':
              'float', 'float', 'float', 'float', 'float', 'float', 'float', 'float', 'float'
         ]
         log_miner = RCSLogMiner(rcg_csv_filepath, logs_folderpath, transition_df_col_names, transition_df_col_dtypes, num_keepers, num_takers, num_state_vars, num_actions)
-        csv_out_path = "C:\\Users\\minhh\\Documents\\JHU\\Fall 2022\\Evolutionary and Swarm Intelligence\\src\\GAME\\output\\10292022 Initial Log Extraction for Keepaway"
-        csv_out_name = 'keepaway_4v3_transitions.csv'
+        csv_out_path = config_data['output_path'] + "11072022 4v3 RCS Sample Data Collection"
+        csv_out_name = 'keepaway_4v3_transitions_v2.csv'
         log_miner.export_data(csv_out_path, csv_out_name)
