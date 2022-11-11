@@ -2,6 +2,8 @@
 # Date: 11/3/2022
 # Purpose: This module contains a config file that can be changed to contain metadata to be used in various places.
 
+import os
+
 def config() -> dict:
     """
     Description:
@@ -16,15 +18,15 @@ def config() -> dict:
     config = {}
     # paths
     # path to the main repository
-    config['GAME_path'] = "C:\\Users\\minhh\\Documents\\JHU\\Fall 2022\\Evolutionary and Swarm Intelligence\\src\\GAME\\"
+    config['GAME_path'] = os.path.join('C:\\Users', 'minhh', 'Documents', 'JHU', 'Fall 2022', 'Evolutionary and Swarm Intelligence', 'src', 'GAME')
     # path to the logs
-    config['logs_path'] = config['GAME_path'] + "logs\\"
+    config['logs_path'] = os.path.join(config['GAME_path'], 'logs')
     # path to the outputs
-    config['output_path'] = config['GAME_path'] + "output\\"
+    config['output_path'] = os.path.join(config['GAME_path'], 'output')
     # path to the pickled objects
-    config['pickle_path'] = config['GAME_path'] + "pickle\\"
+    config['pickle_path'] = os.path.join(config['GAME_path'], 'pickle')
     # path to data folder
-    config['data_path'] = config['GAME_path'] + "data\\"
+    config['data_path'] = os.path.join(config['GAME_path'], 'data')
 
     # task and environment variables
     # 2D Mountain Car

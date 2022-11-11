@@ -5,6 +5,7 @@
 
 from GAME.agents.TileCoding import *
 from GAME.bin.intertask_mappings import IntertaskMapping
+from GAME.utils.config import config
 import numpy as np
 
 class SarsaLambdaCMAC:
@@ -47,6 +48,9 @@ class SarsaLambdaCMAC:
         self.weights = np.zeros(max_size)
         # trace vector
         self.z = np.zeros(max_size)
+
+        # init config
+        self.config_data = config()
     
     def update(self, active_tiles:list, target:float) -> None:
         """
@@ -103,7 +107,7 @@ class SarsaLambdaCMAC2DMountainCar(SarsaLambdaCMAC):
         # inherent from parent class
         super(SarsaLambdaCMAC2DMountainCar, self).__init__(alpha, lamb, gamma, method, num_of_tilings, max_size)
         self.epsilon = epsilon
-        self.actions = [0, 1, 2]
+        self.actions = self.config_data['MC2D_action_values']
 
         # initialize variables specific to 2D mountain car
         # scale position and velocity for tile coding software
@@ -211,7 +215,7 @@ class SarsaLambdaCMAC3DMountainCar(SarsaLambdaCMAC2DMountainCar):
         """
         # inherent from parent class
         super(SarsaLambdaCMAC3DMountainCar, self).__init__(alpha, lamb, gamma, method, epsilon, num_of_tilings, max_size)
-        self.actions = [0, 1, 2, 3, 4]
+        self.actions = self.config_data['MC3D_action_values']
 
         # initialize variables specific to 3D mountain car
         # scale position and velocity for tile coding software
@@ -274,66 +278,4 @@ class SarsaLambdaCMAC3DMountainCar(SarsaLambdaCMAC2DMountainCar):
             return 0.0
         # else
         active_tiles = self.get_active_tiles(state, action)
-        return np.sum(self.weights[active_tiles])
-
-class SarsaLambdaCMAC3DMountainCarWithTransfer(SarsaLambdaCMAC3DMountainCar):
-    """Class for Sarsa lambda with CMAC to learn 3D Mountain Car"""
-    def __init__(self,
-        alpha:float,
-        lamb:float,
-        gamma:float,
-        method:str,
-        epsilon:float,
-        num_of_tilings:int,
-        max_size:int,
-        mapping:IntertaskMapping,
-        transfer_agent:SarsaLambdaCMAC2DMountainCar) -> None:
-        """
-        Description:
-            Initializes a Sarsa(lambda) agent using CMAC tile coding for 3D Mountain Car.
-
-        Arguments:
-            alpha: the step size parameter.
-            lambda: the trace decay rate.
-            gamma: the discount rate.
-            method: 'replacing' or 'accumulating'.
-            epsilon: the epsilon parameter for epsilon-greedy strategy of choosing actions.
-            num_of_tilings: the number of tilings used in CMAC.
-            max_size: the maximum size of the weights and trace vectors.
-            mapping: the Intertask mapping to use for transfer learning.
-            transfer_agent: the agent to transfer from. Usually this is the agent trained in 2D Mountain Car.
-
-        Return:
-            (None)
-        """
-        # inherent from parent class
-        super(SarsaLambdaCMAC3DMountainCarWithTransfer, self).__init__(alpha, lamb, gamma, method, epsilon, num_of_tilings, max_size)
-        self.mapping = mapping
-        self.transfer_agent = transfer_agent
-
-    def get_value(self, state:list, action:int) -> float:
-        """
-        Description:
-            Estimate the value of a given state and action with the use of transferred knowledge.
-
-        Arguments:
-            state: a list of the current state variables in 3D Mountain Car.
-            action: the current action.
-
-        Return:
-            (float) the value of the current state and action
-        """
-        # remember to return a 0.0 if we have already reached the goal state
-        terminated = bool(
-            # state[0] >= self.goal_position and state[1] >= self.goal_velocity
-            state[0] >= self.goal_x_position and state[2] >= self.goal_y_position
-        )
-        if terminated:
-            return 0.0
-        # else
-        # get active tiles for the state in the target task
-        active_tiles = self.get_active_tiles(state, action)
-        # transform the target state tuple into a source state tuple
-        source_state = np.zeros(len(state))
-        
         return np.sum(self.weights[active_tiles])

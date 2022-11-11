@@ -5,6 +5,7 @@
 import pandas as pd
 import numpy as np
 import pickle
+import os
 
 def distance(p1:tuple, p2:tuple) -> float:
     """
@@ -60,19 +61,19 @@ def save_agent_to_file(agent, path:str, agent_filename:str, agent_weights_filena
     Return:
         (None) 
     """
-    with open(path + agent_filename, 'wb') as f:
+    with open(os.path.join(path, agent_filename), 'wb') as f:
         pickle.dump(agent, f)
     if agent_weights_filename:
         agent_weights_filename = ".".join(agent_filename.split('.')[:-1]) + '_weights.pickle'
-        with open(path + agent_weights_filename, 'wb') as f:
+        with open(os.path.join(path, agent_weights_filename), 'wb') as f:
             pickle.dump(agent.weights, f)
     if agent_hash_filename:
         agent_hash_filename = ".".join(agent_filename.split('.')[:-1]) + '_hash.pickle'
-        with open(path + agent_hash_filename, 'wb') as f:
+        with open(os.path.join(path, agent_hash_filename), 'wb') as f:
             pickle.dump(agent.hash_table, f)
     if agent_z_filename:
         agent_z_filename = ".".join(agent_filename.split('.')[:-1]) + '_z.pickle'
-        with open(path + agent_z_filename, 'wb') as f:
+        with open(os.path.join(path, agent_z_filename), 'wb') as f:
             pickle.dump(agent.z, f)
 
 def generate_keepaway_learning_curves(kwy_paths:list, window_size:int=900, alpha:float=0.01, coarse:int=30) -> tuple:

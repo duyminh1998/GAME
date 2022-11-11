@@ -6,26 +6,8 @@ import pandas as pd
 import numpy as np
 import os
 from sklearn.neural_network import MLPRegressor
+from sklearn.preprocessing import MinMaxScaler
 import pickle
-
-class Mapping:
-    """A class that represents a generic mapping. Can be either a state or action mapping."""
-    def __init__(self, type:str, keys:list, values:list) -> None:
-        """
-        Description:
-            Initializes a Mapping.
-
-        Arguments:
-            type: the type of mapping. Must be either 'state' or 'action'.
-            keys: the keys of the map.
-            values: the corresponding values of the map.
-
-        Return:
-            (None)
-        """
-        self.type = type
-        assert len(keys) == len(values)
-        self.mapping = {k : v for k, v in zip(keys, values)}
 
 class IntertaskMapping:
     """A class that represents an inter-task mapping consisting of a state mapping and action mapping."""
@@ -139,39 +121,6 @@ def transform_source_dataset(src_dataset:pd.DataFrame, intertask_map:IntertaskMa
     Return:
         (pd.DataFrame) a dataset of transformed transition samples from the source task.
     """
-    # # temp list to hold data before conversion to dataframe
-    # transformed_src_data = []
-
-    # # save column information for reuse
-    # parsed_col_names_arr = [col.split('_') for col in transformed_df_col_names]
-    # current_or_next_arr = [col[0] for col in parsed_col_names_arr]
-    # state_or_action_arr = [col[1] for col in parsed_col_names_arr]
-
-    # # loop through the source dataset and transform each row
-    # for _, row in src_dataset.iterrows():
-    #     # build mapped state data first
-    #     src_current_state = []
-    #     src_next_state = []
-    #     # loop through the columns and transform them
-    #     for col_idx in range(len(transformed_df_col_names)):
-    #         # ignore actions for now
-    #         if not state_or_action_arr[col_idx] == 'action':
-    #             # we are looking at s or s'
-    #             # construct the mapped state
-    #             reconstructed_col_name = "_".join(parsed_col_names_arr[col_idx][1:])
-    #             # transform column name into source column using mapping
-    #             src_task_col_name = intertask_map.decoded_state_mapping[reconstructed_col_name]
-    #             if current_or_next_arr[col_idx] == 'Current':
-    #                 src_current_state.append(row['Current_' + src_task_col_name])
-    #             elif current_or_next_arr[col_idx] == 'Next':
-    #                 src_next_state.append(row['Next_' + src_task_col_name])
-    #     # for each mapped action, we must create a new (s, a, s') tuple
-    #     for mapped_action in intertask_map.multiple_mapped_actions[int(row['Current_action'])]:
-    #         transformed_data_point = src_current_state + [mapped_action] + src_next_state
-    #         transformed_src_data.append(transformed_data_point)
-    # # output the data to a DataFrame
-    # return pd.DataFrame(transformed_src_data, columns = transformed_df_col_names)
-
     # init empty dataframe for transformed src data
     transformed_src_df = pd.DataFrame()
 
@@ -198,8 +147,8 @@ def transform_source_dataset(src_dataset:pd.DataFrame, intertask_map:IntertaskMa
         multiple_mapped_actions = intertask_map.multiple_mapped_actions[int(row['Current-action'])]
         for mapped_action in multiple_mapped_actions:
             action_dummy_data[mapped_action][row_idx] = 1
-    for action_dummy_idx in range(len(target_actions)):
-        transformed_src_df['Current-action-' + str(action_dummy_idx)] = action_dummy_data[action_dummy_idx]
+    for action_dummy_idx, target_action in enumerate(target_actions):
+        transformed_src_df['Current-action-' + str(target_action)] = action_dummy_data[action_dummy_idx]
     
     return transformed_src_df.reset_index(drop=True)
 

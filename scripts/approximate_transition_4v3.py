@@ -21,23 +21,23 @@ action_col_name = config_data['action_transition_df_col_name']
 nn_folder_path = os.path.join(config_data["pickle_path"], "11102022 4v3 Neural Nets")
 
 ## nn training parameters
-parameters = {
-    'hidden_layer_sizes': [(20,), (40,), (60,), (20, 20), (40, 40)],
-    'activation': ['logistic', 'tanh', 'relu'],
-    'solver': ['sgd', 'adam'],
-    'learning_rate': ['constant', 'adaptive'],
-    'learning_rate_init': [0.001, 0.01, 0.1, 0.2],
-    'max_iter': [1000]
-}
-
 # parameters = {
-#     'hidden_layer_sizes': [(20,), (40,), (60,)],
+#     'hidden_layer_sizes': [(20,), (40,), (60,), (20, 20), (40, 40)],
 #     'activation': ['logistic', 'tanh', 'relu'],
 #     'solver': ['sgd', 'adam'],
 #     'learning_rate': ['constant', 'adaptive'],
 #     'learning_rate_init': [0.001, 0.01, 0.1, 0.2],
 #     'max_iter': [1000]
 # }
+
+parameters = {
+    'hidden_layer_sizes': [(20,), (40,), (60,)],
+    'activation': ['logistic', 'tanh', 'relu'],
+    'solver': ['adam'],
+    'learning_rate': ['constant'],
+    'learning_rate_init': [0.001, 0.01, 0.1, 0.2],
+    'max_iter': [1000]
+}
 
 with open(os.path.join(nn_folder_path, 'results.txt'), 'w') as f:
     f.write('Results\n')
@@ -48,24 +48,25 @@ for action in actions:
     data = TransitionDataLoader(file_path, current_state_cols, next_state_cols, action, action_col_name)
     for target in targets:
         print("Evaluating action: {}, target: {}".format(action, target))
-        df_with_one_target = data.split_features_targets(target)
+        df_with_one_target = data.split_features_targets(target).copy(deep=True)
         feature_scaler = MinMaxScaler()
         target_scaler = MinMaxScaler()
-        X = df_with_one_target[data.current_state_cols]
-        y = df_with_one_target[target]
-        X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+        # X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
 
         # scale
-        feature_scaler.fit(X)
-        target_scaler.fit(np.array(y).reshape(-1, 1))
-        X_val = feature_scaler.transform(X_val)
-        y_val = target_scaler.transform(np.array(y_val).reshape(-1, 1)).reshape(len(y_val), )
+        feature_scaler.fit(df_with_one_target[data.current_state_cols])
+        target_scaler.fit(np.array(df_with_one_target[target]).reshape(-1, 1))
+        df_with_one_target[data.current_state_cols] = feature_scaler.transform(df_with_one_target[data.current_state_cols])
+        df_with_one_target[target] = target_scaler.transform(np.array(df_with_one_target[target]).reshape(-1, 1)).reshape(len(df_with_one_target[target]), )
+
+        X = df_with_one_target[data.current_state_cols]
+        y = df_with_one_target[target]
         
         mlp = MLPRegressor()
         # wrapped_model = TransformedTargetRegressor(regressor=mlp, transformer=MinMaxScaler())
         clf = GridSearchCV(mlp, parameters, n_jobs=-1)
 
-        clf.fit(X_val, y_val)
+        clf.fit(X, y)
 
         # param_file = nn_folder_path + 'a{}--s{}--cv--results.txt'.format(action, 'Next-' + '_'.join(target.split('-')[1:]))
         # with open(param_file, 'r') as f:
@@ -81,9 +82,9 @@ for action in actions:
             random_state=42, 
         max_iter=network_params['max_iter'])
 
-        X_train = feature_scaler.transform(X_train)
-        y_train = target_scaler.transform(np.array(y_train).reshape(-1, 1)).reshape(len(y_train), )
-        final_mlp = best_mlp.fit(X_train, y_train)
+        # X = feature_scaler.transform(X)
+        # y = target_scaler.transform(np.array(y).reshape(-1, 1)).reshape(len(y), )
+        final_mlp = best_mlp.fit(X, y)
 
         # save crossval results and model
         # nn_cv_results_filename = 'a{}--s{}.txt'.format(action, target)
@@ -91,7 +92,7 @@ for action in actions:
         with open(os.path.join(nn_folder_path, 'results.txt'), 'a') as f:
             f.write("Evaluating action: {}, target: {}\n".format(action, target))
             f.write(json.dumps(network_params))
-            f.write('\nScore: {}\n'.format(final_mlp.score(X_train, y_train)))
+            f.write('\nScore: {}\n'.format(final_mlp.score(X, y)))
         with open(os.path.join(nn_folder_path, nn_model_filename), 'wb') as f:
             pickle.dump(final_mlp, f)
 

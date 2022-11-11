@@ -1,6 +1,6 @@
 # Author: Minh Hua
-# Date: 11/1/2022
-# Purpose: This module contains the main evolutionary algorithm that will be used to evolve inter-task mappings.
+# Date: 11/11/2022
+# Purpose: This module contains the hill climbing algorithms that will be used to evolve inter-task mappings.
 
 import random
 import numpy as np
@@ -10,8 +10,8 @@ from GAME.bin.intertask_mappings import *
 from GAME.utils.config import config
 from GAME.agents.stats_saver import StatisticsSaver, MappingSearchExperimentInfo
 
-class GAME:
-    """Genetic Algorithms for Mapping Evolution evolves a population of inter-task mapping for transfer learning in reinforcement learning."""
+class GAME_SAHC:
+    """Steepest-ascent hill climbing evolves on inter-task mapping for transfer learning in reinforcement learning."""
     def __init__(self,
         target_task_name:str,
         src_state_var_names:list,
@@ -23,15 +23,7 @@ class GAME:
         src_task_data_folder_and_filename:str,
         neural_networks_folder:str,
         eval_metric:str='average',
-        pop_size:int=1000,
-        crossover_rate:float=0.8,
-        mutation_rate:float=0.2,
         init_strat:str='random',
-        sel_strat:str='tournament',
-        tournament_sel_k:int=5,
-        crossover_strat:str='one-pt',
-        mutation_strat:str='uniform',
-        replace_strat:str='replace-all-parents',
         max_evol_gen:int=1000,
         early_stop:bool=False,
         early_stop_gen:int=5,
@@ -61,20 +53,8 @@ class GAME:
             neural_networks_folder: the folder containing the neural networks being used for evaluation.
             eval_metric: the metric to determine the fitness of individuals.
                 'average': average the fitness values across the predicted states and actions.
-            pop_size: the size of the population.
-            crossover_rate: the crossover rate.
-            mutation_rate: the mutation rate.
             init_strat: the initialization strategy.
                 'random': uniformly initialize the individual chromosomes.
-            sel_strat: the crossover strategy.
-                'tournament': tournament selection.
-            tournament_sel_k: the number of individuals to include in a tournament.
-            crossover_strat: the crossover strategy.
-                'one-pt': one-point crossover.
-            mutation_strat: the mutation strategy.
-                'uniform': uniform mutation.
-            replace_strat: the population replacement strategy.
-                'replace-all-parents':
             max_evol_gen: the maximum number of generations to evolve.
             early_stop: whether or not to stop evolving early.
             early_stop_gen: the number of generations to check for fitness improvement before stopping early.
@@ -107,15 +87,7 @@ class GAME:
         self.target_action_codes = {target_action : id for target_action, id in zip(target_action_names, target_action_values)}
 
         # evolutionary algorithm parameters
-        self.pop_size = pop_size
-        self.crossover_rate = crossover_rate
-        self.mutation_rate = mutation_rate
         self.init_strat = init_strat
-        self.sel_strat = sel_strat
-        self.tournament_sel_k = tournament_sel_k
-        self.crossover_strat = crossover_strat
-        self.mutation_strat = mutation_strat
-        self.replace_strat = replace_strat
         self.max_evol_gen = max_evol_gen
         self.early_stop = early_stop
         self.early_stop_gen = early_stop_gen
@@ -170,119 +142,15 @@ class GAME:
         Return:
             (list) the list of initial IntertaskMapping individuals.
         """
-        population = []
         if self.init_strat == 'random': # randomly generate mappings. Each mapping is sampled uniformly
-            for _ in range(self.pop_size):
+            for _ in range(1):
                 # first generate the state mapping
                 state_mapping_chrom = [random.randint(0, len(self.src_state_var_names) - 1) for _ in range(len(self.target_state_var_names))]
                 # then generate the action mapping
                 action_mapping_chrom = np.random.choice(self.src_action_values, size = len(self.target_action_names), replace = True)
                 intertask_mapping_individual = IntertaskMapping(state_mapping_chrom, action_mapping_chrom, self.src_state_var_names, self.src_action_names, self.target_state_var_names, self.target_action_names)
-                # append individual to the population
-                population.append(intertask_mapping_individual)
         # return initial population
-        return population
-
-    def select_parents(self) -> IntertaskMapping:
-        """
-        Description:
-            Select parents for crossover according to some strategy.
-
-        Arguments:
-            strategy: the strategy used to crossover the parents.
-                'tournament': tournament selection.
-                'fitness-proportionate': fitness-proportionate selection.
-
-        Return:
-            (IntertaskMapping) a single IntertaskMapping parent chosen from a selection method.
-        """
-        if self.sel_strat == 'tournament':
-            parents = random.choices(self.population, k = self.tournament_sel_k)
-            parent = sorted(parents, key = lambda agent: agent.fitness, reverse=True)
-            parent = parent[0]
-        elif self.sel_strat == 'fitness-proportionate':
-            r = random.random() * sum(mapping.fitness for mapping in self.population)
-            x = 0
-            for mapping in self.population:
-                x += mapping.fitness
-                if r <= x:
-                    parent = mapping
-                    break
-        return parent # return parent
-
-    def crossover(self, parent_1:IntertaskMapping, parent_2:IntertaskMapping) -> list:
-        """
-        Description:
-            Generate a number of offspring using certain crossover strategies.
-
-        Arguments:
-            parent_1: the first parent.
-            parent_2: the second parent.
-            strategy: the strategy used to crossover the parents.
-                'one-pt': one-point crossover.
-                'two-pt': two-point crossover.
-                'fusion': select the bit from the higher-fitness parent.
-
-        Return:
-            (list) a list of IntertaskMapping offspring.
-        """
-        offspring = []
-        if self.crossover_strat == 'one-pt':
-            # randomly select a point to crossover the parents
-            # crossover the state mapping first
-            state_crossover_pt = np.random.choice(len(parent_1.state_mapping), size = 1)[0]
-            offspring_1_state_mapping = parent_1.state_mapping[:state_crossover_pt] + parent_2.state_mapping[state_crossover_pt:]
-            offspring_2_state_mapping = parent_2.state_mapping[:state_crossover_pt] + parent_1.state_mapping[state_crossover_pt:]
-            # crossover the action mapping
-            action_crossover_pt = np.random.choice(len(parent_1.action_mapping), size = 1)[0]
-            offspring_1_action_mapping = parent_1.action_mapping[:action_crossover_pt] + parent_2.action_mapping[action_crossover_pt:]
-            offspring_2_action_mapping = parent_2.action_mapping[:action_crossover_pt] + parent_1.action_mapping[action_crossover_pt:]
-            # create and append the offspring 
-            offspring_1 = IntertaskMapping(offspring_1_state_mapping, offspring_1_action_mapping, self.src_state_var_names, self.src_action_names, self.target_state_var_names, self.target_action_names)
-            offspring.append(offspring_1)
-            offspring_2 = IntertaskMapping(offspring_2_state_mapping, offspring_2_action_mapping, self.src_state_var_names, self.src_action_names, self.target_state_var_names, self.target_action_names)
-            offspring.append(offspring_2)
-        elif self.crossover_strat == 'two-pt':
-            # randomly select points to crossover the parents
-            # crossover the state mapping first
-            state_crossover_pts = sorted(np.random.choice(len(parent_1.state_mapping), size = 2, replace = False))
-            offspring_1_state_mapping = parent_1.state_mapping[:state_crossover_pts[0]] + parent_2.state_mapping[state_crossover_pts[0]:state_crossover_pts[1]] + parent_1.state_mapping[state_crossover_pts[1]:]
-            offspring_2_state_mapping = parent_2.state_mapping[:state_crossover_pts[0]] + parent_1.state_mapping[state_crossover_pts[0]:state_crossover_pts[1]] + parent_2.state_mapping[state_crossover_pts[1]:]
-            # crossover the action mapping
-            action_crossover_pts = np.random.choice(len(parent_1.action_mapping), size = 2, replace = False)
-            offspring_1_action_mapping = parent_1.state_mapping[:action_crossover_pts[0]] + parent_2.state_mapping[action_crossover_pts[0]:action_crossover_pts[1]] + parent_1.state_mapping[action_crossover_pts[1]:]
-            offspring_2_action_mapping = parent_2.state_mapping[:action_crossover_pts[0]] + parent_1.state_mapping[action_crossover_pts[0]:action_crossover_pts[1]] + parent_2.state_mapping[action_crossover_pts[1]:]
-            # create and append the offspring 
-            offspring_1 = IntertaskMapping(offspring_1_state_mapping, offspring_1_action_mapping, self.src_state_var_names, self.src_action_names, self.target_state_var_names, self.target_action_names)
-            offspring.append(offspring_1)
-            offspring_2 = IntertaskMapping(offspring_2_state_mapping, offspring_2_action_mapping, self.src_state_var_names, self.src_action_names, self.target_state_var_names, self.target_action_names)
-            offspring.append(offspring_2)
-        elif self.crossover_strat == 'fusion':
-            # set the child's bit to be the bit belonging to the parent with the higher fitness
-            p = parent_1.fitness / (parent_1.fitness + parent_2.fitness) # probablistically select the parent with the higher fitness
-            # copy the state mapping first
-            state_mapping = []
-            for parent_1_bit, parent_2_bit in zip(parent_1.state_mapping, parent_2.state_mapping):
-                if parent_1_bit == parent_2_bit:
-                    state_mapping.append(parent_1_bit)
-                else:
-                    if random.random() < p: # select P1
-                        state_mapping.append(parent_1_bit)
-                    else: # select P2
-                        state_mapping.append(parent_2_bit)
-            # copy the action mapping last
-            action_mapping = []
-            for parent_1_bit, parent_2_bit in zip(parent_1.action_mapping, parent_2.action_mapping):
-                if parent_1_bit == parent_2_bit:
-                    action_mapping.append(parent_1_bit)
-                else:
-                    if random.random() < p: # select P1
-                        action_mapping.append(parent_1_bit)
-                    else: # select P2
-                        action_mapping.append(parent_2_bit)
-            offspring.append(IntertaskMapping(state_mapping, action_mapping, self.src_state_var_names, self.src_action_names, self.target_state_var_names, self.target_action_names))
-        # return the children
-        return offspring
+        return intertask_mapping_individual
 
     def mutate(self, individual:IntertaskMapping) -> IntertaskMapping:
         """
@@ -314,22 +182,6 @@ class GAME:
         
         # return the mutated individual
         return IntertaskMapping(mutated_state_mapping, mutated_action_mapping, self.src_state_var_names, self.src_action_names, self.target_state_var_names, self.target_action_names)
-
-    def replace(self, offspring:list) -> list:
-        """
-        Description:
-            Replace the current population with the new offspring population using different strategies.
-
-        Arguments:
-            offspring: a list of the current offspring.
-            strategy: the replacement strategy.
-                'replace-all-parents': canonical GA replacement strategy where the offspring replaces the parent population.
-
-        Return:
-            (list) a list of the new population.
-        """
-        if self.replace_strat == 'replace-all-parents':
-            return offspring
 
     def evaluate_fitness(self, mapping:IntertaskMapping, set_fitness:float=True) -> float:
         """
@@ -364,54 +216,6 @@ class GAME:
             self.fitness_cache[mapping.ID] = consolidated_score
             return consolidated_score
 
-    # def evaluate_fitness_online_keepaway(self, mapping:IntertaskMapping, set_fitness:float=True) -> float:
-    #     """
-    #     Description:
-    #         Evaluate the fitness of the mapping online in the Keepaway task.
-
-    #     Arguments:
-    #         mapping: the IntertaskMapping to evaluate the fitness for.
-    #         set_fitness: wether or not we want to set the individual's fitness after evaluation.
-
-    #     Return:
-    #         (float) the fitness of the IntertaskMapping individual.
-    #     """
-    #     # check to see if the fitness is already computed
-    #     if mapping.ID in self.fitness_cache.keys():
-    #         if self.print_debug:
-    #             print("Fitness cache hit!")
-    #         return self.fitness_cache[mapping.ID]
-    #     else:
-    #         # use mapping to initialize tiles for keepaway
-
-    #         # run keepaway for a number of episodes
-
-    #         # parse the average reward and assign it as the mapping's fitness
-            
-    #         consolidated_score = None
-    #         # evaluate the mapping's fitness depending on different strategies
-    #         if self.eval_metric == 'average':
-    #             consolidated_score = consolidated_score[0]
-    #         # consolidate into one single score
-    #         if set_fitness:
-    #             mapping.fitness = consolidated_score
-    #         # cache fitness to save computation
-    #         self.fitness_cache[mapping.ID] = consolidated_score
-    #         return consolidated_score
-
-    def determine_best_fit(self, population:list) -> IntertaskMapping:
-        """
-        Description:
-            Determine the individual with the best fitness in the population.
-
-        Arguments:
-            population: the current population to evaluate the fitness for.
-
-        Return:
-            (IntertaskMapping) the most fit individual.
-        """
-        return sorted(population, key = lambda agent: agent.fitness, reverse=True)[0]
-
     def evolve(self) -> list:
         """
         Description:
@@ -433,21 +237,22 @@ class GAME:
             comparisons = 0
 
             # initialize initial population
-            self.population = self.init_pop()
+            mapping = self.init_pop()
             # evaluate initial population's fitness
-            for mapping in self.population:
-                mapping.fitness = self.evaluate_fitness(mapping)
-                # print debug info
-                print('Indivial ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}'.format(mapping.ID, mapping.state_mapping, mapping.action_mapping, mapping.fitness))
+            mapping = self.evaluate_fitness(mapping)
+            # print debug info
+            print('Indivial ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}'.format(mapping.ID, mapping.state_mapping, mapping.action_mapping, mapping.fitness))
 
             # if we want to stop early, we have to keep track of the best fitness
             if self.early_stop:
-                best_fitness = [self.determine_best_fit(self.population)]
+                best_fitness = mapping.fitness
 
             # main evolution loop
             for gen in range(self.max_evol_gen):
                 if self.print_debug:
                     print("Generation {}".format(gen))
+                
+                # mutation only
                 offspring = []
                 # generate a number of offspring
                 while len(offspring) < self.pop_size:
@@ -594,7 +399,7 @@ if __name__ == '__main__':
 
         # evolution parameters
         eval_metric = 'average'
-        pop_size = 10
+        pop_size = 100
         crossover_rate = 0.8
         mutation_rate = 0.2
         init_strat = 'random'
