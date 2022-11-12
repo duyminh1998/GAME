@@ -101,6 +101,8 @@ class StatisticsSaver:
             for k, v in self.mappings_seen_so_far.items():
                 f.write("Mapping: {}, Seen: {}\n".format(k, v))
             f.write('\n')
+            # sum number of comparisons
+            f.write('Total comparisons: {}\n'.format(sum(data_pt.comparisons for data_pt in self.data)))
             f.write("trial_no, generation, comparisons, best_fitness, best_fitness_ind_ID\n")
             # write aux data
             for data_pt in self.data:

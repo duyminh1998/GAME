@@ -5,13 +5,14 @@
 import random
 import numpy as np
 import os
+from copy import deepcopy
 
 from GAME.bin.intertask_mappings import *
 from GAME.utils.config import config
 from GAME.agents.stats_saver import StatisticsSaver, MappingSearchExperimentInfo
 
-class GAME_SAHC:
-    """Steepest-ascent hill climbing evolves on inter-task mapping for transfer learning in reinforcement learning."""
+class GAME_HC:
+    """Steepest-ascent hill climbing version of Genetic Algorithms for Mapping Evolution."""
     def __init__(self,
         target_task_name:str,
         src_state_var_names:list,
@@ -35,7 +36,8 @@ class GAME_SAHC:
         stats_folder_path:str=None,
         stats_filename:str=None,
         standard_features:bool=False,
-        standard_targets:bool=False
+        standard_targets:bool=False,
+        count_comparisons:bool=False
     ) -> None:
         """
         Description:
@@ -67,6 +69,7 @@ class GAME_SAHC:
             stats_filename: the name of the statistics file.
             standard_features: whether to standardize the features.
             standard_targets: whether to standardize the targets.
+            count_comparisons: whether or not to count the number of comparisons.
 
         Return:
             (None)
@@ -87,6 +90,7 @@ class GAME_SAHC:
         self.target_action_codes = {target_action : id for target_action, id in zip(target_action_names, target_action_values)}
 
         # evolutionary algorithm parameters
+        self.pop_size = 1
         self.init_strat = init_strat
         self.max_evol_gen = max_evol_gen
         self.early_stop = early_stop
@@ -130,6 +134,10 @@ class GAME_SAHC:
             target_scaler.fit(self.src_data_df[target_names])
             self.src_data_df[target_names] = target_scaler.transform(self.src_data_df[target_names])
 
+        self.count_comparisons = count_comparisons
+        if count_comparisons:
+            self.comparisons = []
+
     def init_pop(self) -> list:
         """
         Description:
@@ -142,46 +150,21 @@ class GAME_SAHC:
         Return:
             (list) the list of initial IntertaskMapping individuals.
         """
+        population = []
         if self.init_strat == 'random': # randomly generate mappings. Each mapping is sampled uniformly
-            for _ in range(1):
+            for _ in range(self.pop_size):
                 # first generate the state mapping
                 state_mapping_chrom = [random.randint(0, len(self.src_state_var_names) - 1) for _ in range(len(self.target_state_var_names))]
                 # then generate the action mapping
                 action_mapping_chrom = np.random.choice(self.src_action_values, size = len(self.target_action_names), replace = True)
                 intertask_mapping_individual = IntertaskMapping(state_mapping_chrom, action_mapping_chrom, self.src_state_var_names, self.src_action_names, self.target_state_var_names, self.target_action_names)
+                # append individual to the population
+                population.append(intertask_mapping_individual)
+                # count comparisons if needed
+                if self.count_comparisons:
+                    self.comparisons[-1] = self.comparisons[-1] + 1
         # return initial population
-        return intertask_mapping_individual
-
-    def mutate(self, individual:IntertaskMapping) -> IntertaskMapping:
-        """
-        Description:
-           Mutate an IntertaskMapping individual.
-
-        Arguments:
-            individual: the IntertaskMapping individual to mutate.
-            strategy: the strategy used to mutate the individual.
-                'uniform': mutate each gene with equal probability.
-                'weighted': 
-
-        Return:
-            (IntertaskMapping) the mutated IntertaskMapping individual.
-        """
-        mutated_state_mapping = []
-        mutated_action_mapping = []
-        if self.mutation_strat == 'uniform':
-            for state_map in individual.state_mapping: # mutate state mapping
-                if random.random() < self.mutation_rate:
-                    mutated_state_mapping.append(random.randint(0, len(self.src_state_var_names) - 1))
-                else:
-                    mutated_state_mapping.append(state_map)
-            for action_map in individual.action_mapping: # mutate action mapping
-                if random.random() < self.mutation_rate:
-                    mutated_action_mapping.append(random.randint(0, len(self.src_action_names) - 1))
-                else:
-                    mutated_action_mapping.append(action_map)
-        
-        # return the mutated individual
-        return IntertaskMapping(mutated_state_mapping, mutated_action_mapping, self.src_state_var_names, self.src_action_names, self.target_state_var_names, self.target_action_names)
+        return population
 
     def evaluate_fitness(self, mapping:IntertaskMapping, set_fitness:float=True) -> float:
         """
@@ -214,89 +197,213 @@ class GAME_SAHC:
                 mapping.fitness = consolidated_score
             # cache fitness to save computation
             self.fitness_cache[mapping.ID] = consolidated_score
+            # if count comparisons
+            if self.count_comparisons:
+                self.comparisons[-1] = self.comparisons[-1] + 1
             return consolidated_score
+
+class GAME_SAHC(GAME_HC):
+    """Steepest-ascent hill climbing version of Genetic Algorithms for Mapping Evolution."""
+    def __init__(self,
+        target_task_name:str,
+        src_state_var_names:list,
+        src_action_names:list,
+        src_action_values:list,
+        target_state_var_names:list,
+        target_action_names:list,
+        target_action_values:list,
+        src_task_data_folder_and_filename:str,
+        neural_networks_folder:str,
+        eval_metric:str='average',
+        init_strat:str='random',
+        max_evol_gen:int=1000,
+        early_stop:bool=False,
+        early_stop_gen:int=5,
+        early_stop_thresh:float=10**-4,
+        print_debug:bool=False,
+        save_output_path:str=None,
+        save_every:int=None,
+        stats_saver:StatisticsSaver=None,
+        stats_folder_path:str=None,
+        stats_filename:str=None,
+        standard_features:bool=False,
+        standard_targets:bool=False,
+        count_comparisons:bool=False
+    ) -> None:
+        """
+        Description:
+            Initializes an instance of the Genetic Algorithms for Mapping Evolution model.
+
+        Arguments:
+            target_task_name: the name of the task. '3DMC' or '4v3'.
+            src_state_var_names: the name of the state variables in the source task.
+            src_action_names: the name of the actions in the source task.
+            src_action_values: the numerical value of the actions in the source task.
+            target_state_var_names: the name of the state variables in the target task.
+            target_action_names: the name of the actions in the target task.
+            target_action_values: the numerical value of the actions in the target task.
+            src_task_data_folder_and_filename: the folder and filename of the transition samples in the source task.
+            neural_networks_folder: the folder containing the neural networks being used for evaluation.
+            eval_metric: the metric to determine the fitness of individuals.
+                'average': average the fitness values across the predicted states and actions.
+            init_strat: the initialization strategy.
+                'random': uniformly initialize the individual chromosomes.
+            max_evol_gen: the maximum number of generations to evolve.
+            early_stop: whether or not to stop evolving early.
+            early_stop_gen: the number of generations to check for fitness improvement before stopping early.
+            early_stop_thresh: the threshold to check whether the best fitness has changed.
+            print_debug: whether or not to print debug information.
+            save_output_path: the path to save the results
+            save_every: save output every mapping that gets processed.
+            stats_saver: a StatisticsSaver object to log search data.
+            stats_folder_path: the folder path to save the statistics data.
+            stats_filename: the name of the statistics file.
+            standard_features: whether to standardize the features.
+            standard_targets: whether to standardize the targets.
+            count_comparisons: whether or not to count the number of comparisons.
+
+        Return:
+            (None)
+        """
+        # inherent from parent class
+        super(GAME_SAHC, self).__init__(
+            target_task_name,
+            src_state_var_names,
+            src_action_names,
+            src_action_values,
+            target_state_var_names,
+            target_action_names,
+            target_action_values,
+            src_task_data_folder_and_filename,
+            neural_networks_folder,
+            eval_metric,
+            init_strat,
+            max_evol_gen,
+            early_stop,
+            early_stop_gen,
+            early_stop_thresh,
+            print_debug,
+            save_output_path,
+            save_every,
+            stats_saver,
+            stats_folder_path,
+            stats_filename,
+            standard_features,
+            standard_targets,
+            count_comparisons
+        )
+
+    def sahc_mutation(self, parent_mapping:IntertaskMapping, str_builder:str=None) -> tuple:
+        """
+        Description:
+            Try out all single bit flips and return the offspring with the highest fitness.
+
+        Arguments:
+            parent_mapping: the parent mapping to mutate.
+            str_builder: the string builder to save the results.
+
+        Return:
+            (IntertaskMapping) the best offspring mapping.
+        """
+        offspring = []
+        # try out all single mutation flips
+        for state_mapping_idx in range(len(parent_mapping.state_mapping)): # mutate state mapping
+            for possible_state_mappings in range(len(self.src_state_var_names)):
+                if possible_state_mappings != parent_mapping.state_mapping[state_mapping_idx]:
+                    mutated_state_mapping = deepcopy(parent_mapping.state_mapping)
+                    mutated_state_mapping[state_mapping_idx] = possible_state_mappings
+                    offspring_soln = IntertaskMapping(mutated_state_mapping, parent_mapping.action_mapping, self.src_state_var_names, self.src_action_names, self.target_state_var_names, self.target_action_names)
+                    offspring_soln.fitness = self.evaluate_fitness(offspring_soln)
+                    offspring.append(offspring_soln)
+                    # print debug info
+                    if self.print_debug:
+                        print('Mutated offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}'.format(offspring_soln.ID, offspring_soln.state_mapping, offspring_soln.action_mapping, offspring_soln.fitness))
+                    if self.save_output_path:
+                        str_builder += 'Mutated offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}\n'.format(offspring_soln.ID, offspring_soln.state_mapping, offspring_soln.action_mapping, offspring_soln.fitness)                    
+                    # if count comparisons
+                    if self.count_comparisons:
+                        self.comparisons[-1] = self.comparisons[-1] + 1
+        for action_mapping_idx in range(len(parent_mapping.action_mapping)): # mutate action mapping
+            for possible_action_mappings in self.src_action_values:
+                if possible_action_mappings != parent_mapping.action_mapping[action_mapping_idx]:
+                    mutated_action_mapping = deepcopy(parent_mapping.action_mapping)
+                    mutated_action_mapping[action_mapping_idx] = possible_action_mappings
+                    offspring_soln = IntertaskMapping(parent_mapping.state_mapping, mutated_action_mapping, self.src_state_var_names, self.src_action_names, self.target_state_var_names, self.target_action_names)
+                    offspring_soln.fitness = self.evaluate_fitness(offspring_soln)
+                    offspring.append(offspring_soln)
+                    # print debug info
+                    if self.print_debug:
+                        print('Mutated offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}'.format(offspring_soln.ID, offspring_soln.state_mapping, offspring_soln.action_mapping, offspring_soln.fitness))
+                    if self.save_output_path:
+                        str_builder += 'Mutated offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}\n'.format(offspring_soln.ID, offspring_soln.state_mapping, offspring_soln.action_mapping, offspring_soln.fitness)
+                    # if count comparisons
+                    if self.count_comparisons:
+                        self.comparisons[-1] = self.comparisons[-1] + 1                      
+        
+        # determine the offspring with the best fitness
+        return sorted(offspring, key=lambda agent: agent.fitness, reverse=True)[0], str_builder
 
     def evolve(self) -> list:
         """
         Description:
-            Run the GAME model and generate a list of intertask mappings.
+            Run the hill climber model and generate one intertask mapping.
 
         Arguments:
-            
+            (None)
 
         Return:
             (list) a list of the most fit intertask mappings.
         """
         try:
             # if we save data
+            str_builder = None
             if self.save_output_path:
                 with open(self.save_output_path, 'w') as f:
                     f.write("Results\n")
                 str_builder = ""
 
-            comparisons = 0
+            if self.count_comparisons:
+                self.comparisons.append(0)
 
             # initialize initial population
-            mapping = self.init_pop()
+            self.population = self.init_pop()
             # evaluate initial population's fitness
-            mapping = self.evaluate_fitness(mapping)
-            # print debug info
-            print('Indivial ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}'.format(mapping.ID, mapping.state_mapping, mapping.action_mapping, mapping.fitness))
+            for mapping in self.population:
+                mapping.fitness = self.evaluate_fitness(mapping)
+                # print debug info
+                print('Initial Indivial ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}'.format(mapping.ID, mapping.state_mapping, mapping.action_mapping, mapping.fitness))
+                if self.save_output_path:
+                    str_builder += 'Initial Indivial ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}\n'.format(mapping.ID, mapping.state_mapping, mapping.action_mapping, mapping.fitness)
 
             # if we want to stop early, we have to keep track of the best fitness
             if self.early_stop:
-                best_fitness = mapping.fitness
+                best_fitness = [self.population[0]]
 
             # main evolution loop
             for gen in range(self.max_evol_gen):
+                best_mutated_offspring, str_builder = self.sahc_mutation(mapping, str_builder)
+                if best_mutated_offspring.fitness > mapping.fitness:
+                    mapping = best_mutated_offspring                    
+                # print debug info
                 if self.print_debug:
-                    print("Generation {}".format(gen))
-                
-                # mutation only
-                offspring = []
-                # generate a number of offspring
-                while len(offspring) < self.pop_size:
-                    # select parents for crossover
-                    parent_1 = self.select_parents()
-                    parent_2 = self.select_parents()
-                    # make sure we do not have identical parents
-
-                    if random.random() < self.crossover_rate:
-                        # generate offspring using crossover
-                        new_offspring = self.crossover(parent_1, parent_2)
-                    else: # offspring are exact copies of the parents
-                        new_offspring = [parent_1, parent_2]
-                    # mutate offspring
-                    for offspring_idx in range(len(new_offspring)):
-                        new_offspring[offspring_idx] = self.mutate(new_offspring[offspring_idx])
-                    # evaluate offspring fitness
-                    for offspring_soln in new_offspring:
-                        offspring_soln.fitness = self.evaluate_fitness(offspring_soln)
-                        # add offspring to temporary offspring array
-                        offspring.append(offspring_soln)
-                    # print debug info
-                    if self.print_debug:
-                        for offspring_soln in new_offspring:
-                            print('Offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}'.format(offspring_soln.ID, offspring_soln.state_mapping, offspring_soln.action_mapping, offspring_soln.fitness))
-                    if self.save_output_path:
-                        for offspring_soln in new_offspring:                    
-                            str_builder += 'Offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}\n'.format(offspring_soln.ID, offspring_soln.state_mapping, offspring_soln.action_mapping, offspring_soln.fitness)
-                
-                # replace population with offspring
-                self.population = self.replace(offspring)
+                    print('Best mutated offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}\n'.format(mapping.ID, mapping.state_mapping, mapping.action_mapping, mapping.fitness))
+                if self.save_output_path:
+                    str_builder += 'Best mutated offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}\n'.format(mapping.ID, mapping.state_mapping, mapping.action_mapping, mapping.fitness)                   
 
                 # save info, print info, analyze search
                 if gen % self.save_every == 0:
                     with open(self.save_output_path, 'a') as f:
                         f.write(str_builder)
                         str_builder = ""
+                    if self.stats_saver:
+                        self.stats_saver.export_data(self.stats_out_path, self.stats_filename)
                 # if we want to save statistics
                 if self.stats_saver:
-                    self.stats_saver.analyze_population_and_log_stats(self.population, gen, comparisons)
+                    self.stats_saver.analyze_population_and_log_stats(self.population, gen, self.comparisons[-1])
 
                 # determine early stop if needed
                 if self.early_stop:
-                    best_fitness.append(self.determine_best_fit(self.population))
+                    best_fitness.append(mapping)
                     if len(best_fitness) >= self.early_stop_gen:
                         # check to see if the best fitness has changed enough from the average of the past window
                         moving_average = sum(f.fitness for f in best_fitness[-self.early_stop_gen:]) / self.early_stop_gen
@@ -308,10 +415,235 @@ class GAME_SAHC:
                                 print("Stopping early.")
                             break
 
+                # reset comparisons count
+                if self.count_comparisons:
+                    self.comparisons.append(0)
+                
+                # save mapping to population
+                self.population[0] = mapping
+
             if self.save_output_path:
                 str_builder = "Final population:\n"
-                for ind in self.population:
-                    str_builder += 'Offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}\n'.format(ind.ID, ind.state_mapping, ind.action_mapping, ind.fitness)
+                str_builder += 'Offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}\n'.format(mapping.ID, mapping.state_mapping, mapping.action_mapping, mapping.fitness)
+                with open(self.save_output_path, 'a') as f:
+                    f.write(str_builder)
+            if self.stats_saver:
+                self.stats_saver.export_data(self.stats_out_path, self.stats_filename)
+
+        except KeyboardInterrupt:
+            if self.save_output_path:
+                with open(self.save_output_path, 'a') as f:
+                    f.write(str_builder)
+            if self.stats_saver:
+                self.stats_saver.export_data(self.stats_out_path, self.stats_filename)
+
+class GAME_RMHC(GAME_HC):
+    """Random-mutation hill climbing version of Genetic Algorithms for Mapping Evolution."""
+    def __init__(self,
+        target_task_name:str,
+        src_state_var_names:list,
+        src_action_names:list,
+        src_action_values:list,
+        target_state_var_names:list,
+        target_action_names:list,
+        target_action_values:list,
+        src_task_data_folder_and_filename:str,
+        neural_networks_folder:str,
+        eval_metric:str='average',
+        init_strat:str='random',
+        max_evol_gen:int=1000,
+        early_stop:bool=False,
+        early_stop_gen:int=5,
+        early_stop_thresh:float=10**-4,
+        print_debug:bool=False,
+        save_output_path:str=None,
+        save_every:int=None,
+        stats_saver:StatisticsSaver=None,
+        stats_folder_path:str=None,
+        stats_filename:str=None,
+        standard_features:bool=False,
+        standard_targets:bool=False,
+        count_comparisons:bool=False
+    ) -> None:
+        """
+        Description:
+            Initializes an instance of the Genetic Algorithms for Mapping Evolution model.
+
+        Arguments:
+            target_task_name: the name of the task. '3DMC' or '4v3'.
+            src_state_var_names: the name of the state variables in the source task.
+            src_action_names: the name of the actions in the source task.
+            src_action_values: the numerical value of the actions in the source task.
+            target_state_var_names: the name of the state variables in the target task.
+            target_action_names: the name of the actions in the target task.
+            target_action_values: the numerical value of the actions in the target task.
+            src_task_data_folder_and_filename: the folder and filename of the transition samples in the source task.
+            neural_networks_folder: the folder containing the neural networks being used for evaluation.
+            eval_metric: the metric to determine the fitness of individuals.
+                'average': average the fitness values across the predicted states and actions.
+            init_strat: the initialization strategy.
+                'random': uniformly initialize the individual chromosomes.
+            max_evol_gen: the maximum number of generations to evolve.
+            early_stop: whether or not to stop evolving early.
+            early_stop_gen: the number of generations to check for fitness improvement before stopping early.
+            early_stop_thresh: the threshold to check whether the best fitness has changed.
+            print_debug: whether or not to print debug information.
+            save_output_path: the path to save the results
+            save_every: save output every mapping that gets processed.
+            stats_saver: a StatisticsSaver object to log search data.
+            stats_folder_path: the folder path to save the statistics data.
+            stats_filename: the name of the statistics file.
+            standard_features: whether to standardize the features.
+            standard_targets: whether to standardize the targets.
+            count_comparisons: whether or not to count the number of comparisons.
+
+        Return:
+            (None)
+        """
+        # inherent from parent class
+        super(GAME_RMHC, self).__init__(
+            target_task_name,
+            src_state_var_names,
+            src_action_names,
+            src_action_values,
+            target_state_var_names,
+            target_action_names,
+            target_action_values,
+            src_task_data_folder_and_filename,
+            neural_networks_folder,
+            eval_metric,
+            init_strat,
+            max_evol_gen,
+            early_stop,
+            early_stop_gen,
+            early_stop_thresh,
+            print_debug,
+            save_output_path,
+            save_every,
+            stats_saver,
+            stats_folder_path,
+            stats_filename,
+            standard_features,
+            standard_targets,
+            count_comparisons
+        )
+
+    def rmhc_mutate(self, individual:IntertaskMapping, str_builder:str=None) -> IntertaskMapping:
+        """
+        Description:
+           Mutate an IntertaskMapping individual.
+
+        Arguments:
+            individual: the IntertaskMapping individual to mutate.
+            str_builder: string builder to save output.
+
+        Return:
+            (IntertaskMapping) the mutated IntertaskMapping individual.
+        """
+        mutated_state_mapping = deepcopy(individual.state_mapping)
+        mutated_action_mapping = deepcopy(individual.action_mapping)
+        # mutate a random state mapping
+        random_state_idx = np.random.choice(len(mutated_state_mapping), size = 1)[0]
+        random_action_idx = np.random.choice(len(mutated_action_mapping), size = 1)[0]
+        mutated_state_mapping[random_state_idx] = np.random.choice(len(self.src_state_var_names), size = 1)[0]
+        mutated_action_mapping[random_action_idx] = np.random.choice(self.src_action_values, size = 1)[0]
+        mutated_offspring = IntertaskMapping(mutated_state_mapping, mutated_action_mapping, self.src_state_var_names, self.src_action_names, self.target_state_var_names, self.target_action_names)
+        mutated_offspring.fitness = self.evaluate_fitness(mutated_offspring)
+
+        # print debug info
+        if self.print_debug:
+            print('Mutated offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}'.format(mutated_offspring.ID, mutated_offspring.state_mapping, mutated_offspring.action_mapping, mutated_offspring.fitness))
+        if self.save_output_path:
+            str_builder += 'Mutated offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}\n'.format(mutated_offspring.ID, mutated_offspring.state_mapping, mutated_offspring.action_mapping, mutated_offspring.fitness)         
+        # if count comparisons
+        if self.count_comparisons:
+            self.comparisons[-1] = self.comparisons[-1] + 1        
+        
+        # return the mutated individual
+        return mutated_offspring, str_builder
+
+    def evolve(self) -> list:
+        """
+        Description:
+            Run the hill climber model and generate one intertask mapping.
+
+        Arguments:
+            (None)
+
+        Return:
+            (list) a list of the most fit intertask mappings.
+        """
+        try:
+            # if we save data
+            str_builder = None
+            if self.save_output_path:
+                with open(self.save_output_path, 'w') as f:
+                    f.write("Results\n")
+                str_builder = ""
+
+            if self.count_comparisons:
+                self.comparisons.append(0)
+
+            # initialize initial population
+            self.population = self.init_pop()
+            # evaluate initial population's fitness
+            for mapping in self.population:
+                mapping.fitness = self.evaluate_fitness(mapping)
+                # print debug info
+                print('Initial Indivial ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}'.format(mapping.ID, mapping.state_mapping, mapping.action_mapping, mapping.fitness))
+                if self.save_output_path:
+                    str_builder += 'Initial Indivial ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}\n'.format(mapping.ID, mapping.state_mapping, mapping.action_mapping, mapping.fitness)
+
+            # if we want to stop early, we have to keep track of the best fitness
+            if self.early_stop:
+                best_fitness = [self.population[0]]
+
+            # main evolution loop
+            for gen in range(self.max_evol_gen):
+                best_mutated_offspring, str_builder = self.rmhc_mutate(mapping, str_builder)
+                if best_mutated_offspring.fitness > mapping.fitness:
+                    mapping = best_mutated_offspring                    
+                # print debug info
+                if self.print_debug:
+                    print('Best mutated offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}\n'.format(mapping.ID, mapping.state_mapping, mapping.action_mapping, mapping.fitness))
+                if self.save_output_path:
+                    str_builder += 'Best mutated offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}\n'.format(mapping.ID, mapping.state_mapping, mapping.action_mapping, mapping.fitness)                   
+
+                # save info, print info, analyze search
+                if gen % self.save_every == 0:
+                    with open(self.save_output_path, 'a') as f:
+                        f.write(str_builder)
+                        str_builder = ""
+                    if self.stats_saver:
+                        self.stats_saver.export_data(self.stats_out_path, self.stats_filename)
+                # if we want to save statistics
+                if self.stats_saver:
+                    self.stats_saver.analyze_population_and_log_stats(self.population, gen, self.comparisons[-1])
+
+                # determine early stop if needed
+                if self.early_stop:
+                    best_fitness.append(mapping)
+                    if len(best_fitness) >= self.early_stop_gen:
+                        # check to see if the best fitness has changed enough from the average of the past window
+                        moving_average = sum(f.fitness for f in best_fitness[-self.early_stop_gen:]) / self.early_stop_gen
+                        if self.print_debug:
+                            print("Average best fitness of the past {} generations: {}".format(self.early_stop_gen, moving_average))
+                        if abs(best_fitness[-1].fitness - moving_average) <= self.early_stop_thresh:
+                            # we can stop early
+                            if self.print_debug:
+                                print("Stopping early.")
+                            break
+
+                # reset comparisons count
+                if self.count_comparisons:
+                    self.comparisons.append(0)
+                
+                # save mapping to population
+                self.population[0] = mapping
+
+            if self.save_output_path:
+                str_builder = "Final population:\n"
+                str_builder += 'Offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}\n'.format(mapping.ID, mapping.state_mapping, mapping.action_mapping, mapping.fitness)
                 with open(self.save_output_path, 'a') as f:
                     f.write(str_builder)
             if self.stats_saver:
@@ -342,50 +674,43 @@ if __name__ == '__main__':
 
         # evolution parameters
         eval_metric = 'average'
-        pop_size = 10
-        crossover_rate = 0.8
-        mutation_rate = 0.2
         init_strat = 'random'
-        sel_strat = 'tournament'
-        tournament_sel_k = int(0.25 * pop_size)
-        crossover_strat = 'fusion'
-        mutation_strat = 'uniform'
-        replace_strat = 'replace-all-parents'
-        max_evol_gen = 10
+        max_evol_gen = 100
         early_stop = True
-        early_stop_gen = 3
+        early_stop_gen = 10
         early_stop_thresh = 10**-4
         print_debug = True
 
-        save_output_path  = os.path.join(config_data['output_path'], '11112022 MC EA', 'results.txt')
+        save_output_path  = os.path.join(config_data['output_path'], '11112022 MC EA', 'MC_HC_results.txt')
         save_every = 1
 
         search_exp_info = MappingSearchExperimentInfo('2DMC', '3DMC', 'GAME', None)
         stats_saver = StatisticsSaver(search_exp_info, 1, True)
         stats_folder_path = os.path.join(config_data['output_path'], '11112022 MC EA')
-        stats_filename = 'stats.txt'
-        stats_pickle = 'stats.pickle'
+        stats_filename = 'MC_HC_stats.txt'
+        stats_pickle = 'MC_HC_stats.pickle'
 
-        standard_features = True
-        standard_targets = True
+        standard_features = False
+        standard_targets = False
+
+        count_comparisons = True
 
         # helper variables
         # transforming src data
         src_task_data_folder_and_filename = os.path.join("11032022 2DMC Sample Collection 100 Episodes with Training", "2DMC_100_episodes_sample_data.csv")
         neural_networks_folder = "11012022 3DMC Neural Nets"
 
-        ea = GAME(target_task_name, src_state_var_names, src_action_names, src_action_values, target_state_var_names, target_action_names, target_action_values, 
-        src_task_data_folder_and_filename, neural_networks_folder, eval_metric, pop_size, crossover_rate, 
-        mutation_rate, init_strat, sel_strat, tournament_sel_k, crossover_strat, mutation_strat, replace_strat, max_evol_gen, 
-        early_stop, early_stop_gen, early_stop_thresh, print_debug, save_output_path, save_every, stats_saver, stats_folder_path, stats_filename, standard_features, standard_targets)
+        hc = GAME_RMHC(target_task_name, src_state_var_names, src_action_names, src_action_values, target_state_var_names, target_action_names, target_action_values, 
+        src_task_data_folder_and_filename, neural_networks_folder, eval_metric, init_strat, max_evol_gen, 
+        early_stop, early_stop_gen, early_stop_thresh, print_debug, save_output_path, save_every, stats_saver, stats_folder_path, stats_filename, standard_features, standard_targets, count_comparisons)
         # run the GAME model
-        ea.evolve()
+        hc.evolve()
         # print the final evolved population
-        for mapping in ea.population:
+        for mapping in hc.population:
             print(mapping)
 
         with open(os.path.join(stats_folder_path, stats_pickle), 'wb') as f:
-            pickle.dump(ea.stats_saver, f)
+            pickle.dump(hc.stats_saver, f)
     
     elif test == 1: # 4v3 Keepaway test
         # variables to identify the task
@@ -399,48 +724,40 @@ if __name__ == '__main__':
 
         # evolution parameters
         eval_metric = 'average'
-        pop_size = 100
-        crossover_rate = 0.8
-        mutation_rate = 0.2
         init_strat = 'random'
-        sel_strat = 'tournament'
-        tournament_sel_k = int(0.25 * pop_size)
-        crossover_strat = 'fusion'
-        mutation_strat = 'uniform'
-        replace_strat = 'replace-all-parents'
-        max_evol_gen = 20
+        max_evol_gen = 1000
         early_stop = True
-        early_stop_gen = 5
+        early_stop_gen = 10
         early_stop_thresh = 10**-4
         print_debug = True
 
-        save_output_path  = os.path.join(config_data['output_path'], '11112022 MC EA', 'keepaway_results.txt')
+        save_output_path  = os.path.join(config_data['output_path'], '11112022 MC EA', 'keepaway_HC_results.txt')
         save_every = 1
 
         search_exp_info = MappingSearchExperimentInfo('3v2', '4v3', 'GAME', None)
         stats_saver = StatisticsSaver(search_exp_info, 1, True)
         stats_folder_path = os.path.join(config_data['output_path'], '11112022 MC EA')
-        stats_filename = 'stats.txt'
-        stats_pickle = 'stats.pickle'
+        stats_filename = 'keepaway_HC_stats.txt'
+        stats_pickle = 'keepaway_HC_stats.pickle'
 
         standard_features = True
         standard_targets = True
+
+        count_comparisons = True        
 
         # helper variables
         # transforming src data
         src_task_data_folder_and_filename = os.path.join('11102022 3v2 10x350 eps learned', "keepaway_3v2_transitions_v3.csv")
         neural_networks_folder = "11102022 4v3 Neural Nets"
 
-        ea = GAME(target_task_name, src_state_var_names, src_action_names, src_action_values, target_state_var_names, target_action_names, target_action_values, 
-        src_task_data_folder_and_filename, neural_networks_folder, eval_metric, pop_size, crossover_rate, 
-        mutation_rate, init_strat, sel_strat, tournament_sel_k, crossover_strat, mutation_strat, replace_strat, max_evol_gen, 
-        early_stop, early_stop_gen, early_stop_thresh, print_debug, save_output_path, save_every, stats_saver, stats_folder_path, stats_filename, standard_features, standard_targets)
+        hc = GAME_RMHC(target_task_name, src_state_var_names, src_action_names, src_action_values, target_state_var_names, target_action_names, target_action_values, 
+        src_task_data_folder_and_filename, neural_networks_folder, eval_metric, init_strat, max_evol_gen, 
+        early_stop, early_stop_gen, early_stop_thresh, print_debug, save_output_path, save_every, stats_saver, stats_folder_path, stats_filename, standard_features, standard_targets, count_comparisons)
         # run the GAME model
-        ea.evolve()
+        hc.evolve()
         # print the final evolved population
-        print("Best mappings: ")
-        for mapping in ea.population:
+        for mapping in hc.population:
             print(mapping)
 
         with open(os.path.join(stats_folder_path, stats_pickle), 'wb') as f:
-            pickle.dump(ea.stats_saver, f)
+            pickle.dump(hc.stats_saver, f)
