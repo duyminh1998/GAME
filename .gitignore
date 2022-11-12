@@ -2,6 +2,7 @@
 /pickle
 /data
 /logs
+/keepaway_logs
 /.vscode
 
 # Byte-compiled / optimized / DLL files
