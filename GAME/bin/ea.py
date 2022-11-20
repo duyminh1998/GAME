@@ -8,7 +8,7 @@ import os
 
 from GAME.bin.intertask_mappings import *
 from GAME.utils.config import config
-from GAME.agents.stats_saver import StatisticsSaver, MappingSearchExperimentInfo
+from GAME.utils.stats_saver import StatisticsSaver, MappingSearchExperimentInfo
 
 class GAME:
     """Genetic Algorithms for Mapping Evolution evolves a population of inter-task mapping for transfer learning in reinforcement learning."""
@@ -33,7 +33,7 @@ class GAME:
         mutation_strat:str='uniform',
         replace_strat:str='replace-all-parents',
         top_k_elitism:int=None,
-        max_evol_gen:int=1000,
+        max_fitness_evals:int=10000,
         early_stop:bool=False,
         early_stop_gen:int=5,
         early_stop_thresh:float=10**-4,
@@ -78,7 +78,7 @@ class GAME:
             replace_strat: the population replacement strategy.
                 'replace-all-parents':
             top_k_elitism: top-k elitism.
-            max_evol_gen: the maximum number of generations to evolve.
+            max_fitness_evals: the maximum number of fitness evaluations.
             early_stop: whether or not to stop evolving early.
             early_stop_gen: the number of generations to check for fitness improvement before stopping early.
             early_stop_thresh: the threshold to check whether the best fitness has changed.
@@ -121,7 +121,7 @@ class GAME:
         self.mutation_strat = mutation_strat
         self.replace_strat = replace_strat
         self.top_k_elitism = top_k_elitism
-        self.max_evol_gen = max_evol_gen
+        self.max_fitness_evals = max_fitness_evals
         self.early_stop = early_stop
         self.early_stop_gen = early_stop_gen
         self.early_stop_thresh = early_stop_thresh
@@ -130,14 +130,14 @@ class GAME:
         self.config_data = config()
 
         # transforming src data for mapping evaluation
-        src_data_path = os.path.join(self.config_data['output_path'], src_task_data_folder_and_filename)
+        src_data_path = src_task_data_folder_and_filename
         self.src_data_df = pd.read_csv(src_data_path, index_col = False)
         self.transformed_df_col_names = self.config_data['{}_full_transition_df_col_names'.format(target_task_name)]
         self.transformed_df_current_state_cols = self.config_data['{}_current_state_transition_df_col_names'.format(target_task_name)]
         self.transformed_df_next_state_cols = self.config_data['{}_next_state_transition_df_col_names'.format(target_task_name)]
 
         # evaluation using networks
-        network_folder_path = os.path.join(self.config_data['pickle_path'], neural_networks_folder)
+        network_folder_path = neural_networks_folder
         self.eval_networks = EvaluationNetworks(network_folder_path)
 
         # create a cache that saves fitness evaluations to avoid repeat evaluations
@@ -166,6 +166,8 @@ class GAME:
         self.count_comparisons = count_comparisons
         if count_comparisons:
             self.comparisons = []
+        # count the number of fitness evaluations
+        self.fitness_evaluations = 0
 
     def init_pop(self) -> list:
         """
@@ -246,12 +248,12 @@ class GAME:
             # randomly select a point to crossover the parents
             # crossover the state mapping first
             state_crossover_pt = np.random.choice(len(parent_1.state_mapping), size = 1)[0]
-            offspring_1_state_mapping = parent_1.state_mapping[:state_crossover_pt] + parent_2.state_mapping[state_crossover_pt:]
-            offspring_2_state_mapping = parent_2.state_mapping[:state_crossover_pt] + parent_1.state_mapping[state_crossover_pt:]
+            offspring_1_state_mapping = list(parent_1.state_mapping[:state_crossover_pt]) + list(parent_2.state_mapping[state_crossover_pt:])
+            offspring_2_state_mapping = list(parent_2.state_mapping[:state_crossover_pt]) + list(parent_1.state_mapping[state_crossover_pt:])
             # crossover the action mapping
             action_crossover_pt = np.random.choice(len(parent_1.action_mapping), size = 1)[0]
-            offspring_1_action_mapping = parent_1.action_mapping[:action_crossover_pt] + parent_2.action_mapping[action_crossover_pt:]
-            offspring_2_action_mapping = parent_2.action_mapping[:action_crossover_pt] + parent_1.action_mapping[action_crossover_pt:]
+            offspring_1_action_mapping = list(parent_1.action_mapping[:action_crossover_pt]) + list(parent_2.action_mapping[action_crossover_pt:])
+            offspring_2_action_mapping = list(parent_2.action_mapping[:action_crossover_pt]) + list(parent_1.action_mapping[action_crossover_pt:])
             # create and append the offspring 
             offspring_1 = IntertaskMapping(offspring_1_state_mapping, offspring_1_action_mapping, self.src_state_var_names, self.src_action_names, self.target_state_var_names, self.target_action_names)
             offspring.append(offspring_1)
@@ -363,6 +365,11 @@ class GAME:
         Return:
             (float) the fitness of the IntertaskMapping individual.
         """
+        # count the number of fitness evaluations
+        self.fitness_evaluations = self.fitness_evaluations + 1
+        # if count comparisons
+        if self.count_comparisons:
+            self.comparisons[-1] = self.comparisons[-1] + 1        
         # check to see if the fitness is already computed
         if mapping.ID in self.fitness_cache.keys():
             if self.print_debug:
@@ -381,10 +388,7 @@ class GAME:
             if set_fitness:
                 mapping.fitness = consolidated_score
             # cache fitness to save computation
-            self.fitness_cache[mapping.ID] = consolidated_score
-            # if count comparisons
-            if self.count_comparisons:
-                self.comparisons[-1] = self.comparisons[-1] + 1
+            self.fitness_cache[mapping.ID] = consolidated_score              
             return consolidated_score
 
     def determine_best_fit(self, population:list) -> IntertaskMapping:
@@ -438,10 +442,21 @@ class GAME:
             if self.early_stop:
                 best_fitness = [self.determine_best_fit(self.population)]
 
+            gen = 0
+
             # main evolution loop
-            for gen in range(self.max_evol_gen):
+            while self.fitness_evaluations < self.max_fitness_evals:
                 if self.print_debug:
                     print("Generation {}".format(gen))
+
+                # elitism
+                if self.top_k_elitism:
+                    # save top k individuals from parent population
+                    top_k = sorted(self.population, key=lambda agent: agent.fitness, reverse=True)[:self.top_k_elitism]
+                    # if count comparisons
+                    if self.count_comparisons:
+                        self.comparisons[-1] = self.comparisons[-1] + self.pop_size 
+                        
                 offspring = []
                 # generate a number of offspring
                 while len(offspring) < self.pop_size:
@@ -470,15 +485,7 @@ class GAME:
                             print('Offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}'.format(offspring_soln.ID, offspring_soln.state_mapping, offspring_soln.action_mapping, offspring_soln.fitness))
                     if self.save_output_path:
                         for offspring_soln in new_offspring:                    
-                            str_builder += 'Offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}\n'.format(offspring_soln.ID, offspring_soln.state_mapping, offspring_soln.action_mapping, offspring_soln.fitness)
-                
-                # elitism
-                if self.top_k_elitism:
-                    # save top k individuals from parent population
-                    top_k = sorted(self.population, key=lambda agent: agent.fitness, reverse=True)[:self.top_k_elitism]
-                    # if count comparisons
-                    if self.count_comparisons:
-                        self.comparisons[-1] = self.comparisons[-1] + self.pop_size                    
+                            str_builder += 'Offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}\n'.format(offspring_soln.ID, offspring_soln.state_mapping, offspring_soln.action_mapping, offspring_soln.fitness)                   
 
                 # replace population with offspring
                 self.population = self.replace(offspring)
@@ -499,7 +506,7 @@ class GAME:
                         self.stats_saver.export_data(self.stats_out_path, self.stats_filename)
                 # if we want to save statistics
                 if self.stats_saver:
-                    self.stats_saver.analyze_population_and_log_stats(self.population, gen, self.comparisons[-1])
+                    self.stats_saver.analyze_population_and_log_stats(self.population, gen, self.comparisons[-1], self.fitness_evaluations)
 
                 # determine early stop if needed
                 if self.early_stop:
@@ -518,6 +525,8 @@ class GAME:
                 # reset comparisons count
                 if self.count_comparisons:
                     self.comparisons.append(0)
+                
+                gen += 1
 
             if self.save_output_path:
                 str_builder = "Final population:\n"
@@ -553,20 +562,20 @@ if __name__ == '__main__':
 
         # evolution parameters
         eval_metric = 'average'
-        pop_size = 15
+        pop_size = 5
         crossover_rate = 0.8
         mutation_rate = 0.2
         init_strat = 'random'
         sel_strat = 'tournament'
         tournament_sel_k = int(0.25 * pop_size)
-        crossover_strat = 'fusion'
+        crossover_strat = 'one-pt'
         mutation_strat = 'uniform'
         replace_strat = 'replace-all-parents'
         top_k_elitism = None
-        max_evol_gen = 10
+        max_fitness_evals = 2000
         early_stop = True
         early_stop_gen = 3
-        early_stop_thresh = 10**-4
+        early_stop_thresh = 10**-3
         print_debug = True
 
         save_output_path  = os.path.join(config_data['output_path'], '11112022 MC EA', 'MC_results.txt')
@@ -585,12 +594,12 @@ if __name__ == '__main__':
 
         # helper variables
         # transforming src data
-        src_task_data_folder_and_filename = os.path.join("11032022 2DMC Sample Collection 100 Episodes with Training", "2DMC_100_episodes_sample_data.csv")
-        neural_networks_folder = "11012022 3DMC Neural Nets"
+        src_task_data_folder_and_filename = os.path.join(config_data['output_path'], "11032022 2DMC Sample Collection 100 Episodes with Training", "2DMC_100_episodes_sample_data.csv")
+        neural_networks_folder = os.path.join(config_data['pickle_path'], "11012022 3DMC Neural Nets")
 
         ea = GAME(target_task_name, src_state_var_names, src_action_names, src_action_values, target_state_var_names, target_action_names, target_action_values, 
         src_task_data_folder_and_filename, neural_networks_folder, eval_metric, pop_size, crossover_rate, 
-        mutation_rate, init_strat, sel_strat, tournament_sel_k, crossover_strat, mutation_strat, replace_strat, top_k_elitism, max_evol_gen, 
+        mutation_rate, init_strat, sel_strat, tournament_sel_k, crossover_strat, mutation_strat, replace_strat, top_k_elitism, max_fitness_evals, 
         early_stop, early_stop_gen, early_stop_thresh, print_debug, save_output_path, save_every, stats_saver, stats_folder_path, stats_filename, standard_features, standard_targets, count_comparisons)
         # run the GAME model
         ea.evolve()
@@ -623,7 +632,7 @@ if __name__ == '__main__':
         mutation_strat = 'uniform'
         replace_strat = 'replace-all-parents'
         top_k_elitism = 5
-        max_evol_gen = 1000
+        max_fitness_evals = 2000
         early_stop = True
         early_stop_gen = 5
         early_stop_thresh = 10**-4
@@ -650,7 +659,7 @@ if __name__ == '__main__':
 
         ea = GAME(target_task_name, src_state_var_names, src_action_names, src_action_values, target_state_var_names, target_action_names, target_action_values, 
         src_task_data_folder_and_filename, neural_networks_folder, eval_metric, pop_size, crossover_rate, 
-        mutation_rate, init_strat, sel_strat, tournament_sel_k, crossover_strat, mutation_strat, replace_strat, top_k_elitism, max_evol_gen, 
+        mutation_rate, init_strat, sel_strat, tournament_sel_k, crossover_strat, mutation_strat, replace_strat, top_k_elitism, max_fitness_evals, 
         early_stop, early_stop_gen, early_stop_thresh, print_debug, save_output_path, save_every, stats_saver, stats_folder_path, stats_filename, standard_features, standard_targets, count_comparisons)
         # run the GAME model
         ea.evolve()

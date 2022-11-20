@@ -20,7 +20,7 @@ def config() -> dict:
     # path to the main repository
     config['GAME_path'] = os.path.join('C:\\Users', 'minhh', 'Documents', 'JHU', 'Fall 2022', 'Evolutionary and Swarm Intelligence', 'src', 'GAME')
     # path to the logs
-    config['logs_path'] = os.path.join(config['GAME_path'], 'logs')
+    config['logs_path'] = os.path.join(config['GAME_path'], 'keepaway_logs')
     # path to the outputs
     config['output_path'] = os.path.join(config['GAME_path'], 'output')
     # path to the pickled objects

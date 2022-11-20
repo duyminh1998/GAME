@@ -279,3 +279,85 @@ class SarsaLambdaCMAC3DMountainCar(SarsaLambdaCMAC2DMountainCar):
         # else
         active_tiles = self.get_active_tiles(state, action)
         return np.sum(self.weights[active_tiles])
+
+class SarsaLambdaCMAC3DMountainCarTransfer(SarsaLambdaCMAC3DMountainCar):
+    """Class for Sarsa lambda with CMAC to learn 3D Mountain Car with transfer"""
+    def __init__(self,
+        alpha:float,
+        lamb:float,
+        gamma:float,
+        method:str,
+        epsilon:float,
+        num_of_tilings:int,
+        max_size:int,
+        transfer_agent:SarsaLambdaCMAC2DMountainCar=None,
+        mapping:IntertaskMapping=None) -> None:
+        """
+        Description:
+            Initializes a Sarsa(lambda) agent using CMAC tile coding for 3D Mountain Car.
+
+        Arguments:
+            alpha: the step size parameter.
+            lambda: the trace decay rate.
+            gamma: the discount rate.
+            method: 'replacing' or 'accumulating'.
+            epsilon: the epsilon parameter for epsilon-greedy strategy of choosing actions.
+            num_of_tilings: the number of tilings used in CMAC.
+            max_size: the maximum size of the weights and trace vectors.
+            transfer_agent: the agent to transfer from.
+
+        Return:
+            (None)
+        """
+        # inherent from parent class
+        super(SarsaLambdaCMAC3DMountainCarTransfer, self).__init__(alpha, lamb, gamma, method, epsilon, num_of_tilings, max_size)
+        self.transfer_agent = transfer_agent
+        self.mapping = mapping
+
+    def get_value(self, state:list, action:int) -> float:
+        """
+        Description:
+            Estimate the value of a given state and action.
+
+        Arguments:
+            state: a list of the current state variables in 3D Mountain Car.
+            action: the current action.
+
+        Return:
+            (float) the value of the current state and action
+        """
+        # remember to return a 0.0 if we have already reached the goal state
+        terminated = bool(
+            # state[0] >= self.goal_position and state[1] >= self.goal_velocity
+            state[0] >= self.goal_x_position and state[2] >= self.goal_y_position
+        )
+        if terminated:
+            return 0.0
+        # else
+        active_tiles = self.get_active_tiles(state, action)
+        base_value = np.sum(self.weights[active_tiles])
+        # add value from transfer agent
+        # build mapped state variables and actions
+        x, x_dot, y, y_dot = state
+        src_action = self.mapping.action_mapping[action]
+        # # r2_values = [[0.9929816541449503, 0.9863922534862493, 0.9827540818142966],
+        # # [0.9898554363903732, 0.9807461375299111, 0.9727148311728532], [0.992743856876952, 0.9865786993775076, 0.9873256083696892],
+        # # [0.9938926191874691, 0.9863977078527576, 0.9832993967828477], [0.9813449416585194, 0.9650493513874667, 0.9363257347643477]
+        # # ]
+        # r2_values = [[0.0118, 0.0079, 0.0103],
+        # [0.0095, 0.0088, 0.0127], [0.0144, 0.0095, 0.0089],
+        # [0.0099, 0.0093, 0.0135], [0.0136, 0.01, 0.01]
+        # ]        
+        # r2_sum = sum(1/val for val in r2_values[action])
+        # # print("Base value: {}".format(base_value))
+        # for src_action in [0, 1, 2]:
+        #     # print("Source action: {}, Value: {}".format(src_action, self.transfer_agent.get_value([x, x_dot], src_action)))
+        #     src_active_tiles = self.transfer_agent.get_active_tiles([x, x_dot], src_action)
+        #     base_value += np.sum(self.transfer_agent.weights[src_active_tiles]) * (1 / r2_values[action][src_action]) / r2_sum
+        #     src_active_tiles = self.transfer_agent.get_active_tiles([y, y_dot], src_action)
+        #     base_value += np.sum(self.transfer_agent.weights[src_active_tiles]) * (1 / r2_values[action][src_action]) / r2_sum
+        src_active_tiles = self.transfer_agent.get_active_tiles([x, x_dot], src_action)
+        base_value += np.sum(self.transfer_agent.weights[src_active_tiles])
+        src_active_tiles = self.transfer_agent.get_active_tiles([y, y_dot], src_action)
+        base_value += np.sum(self.transfer_agent.weights[src_active_tiles])        
+        return base_value

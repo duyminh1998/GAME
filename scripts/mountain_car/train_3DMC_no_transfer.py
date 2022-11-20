@@ -5,6 +5,7 @@
 import GAME.envs.mountain_car
 import gym
 import pickle
+import os
 
 from GAME.agents.sarsa_lambda import SarsaLambdaCMAC3DMountainCar
 from GAME.utils.helper_funcs import *
@@ -21,7 +22,7 @@ lamb = 0.99
 gamma = 1
 method = 'replacing'
 epsilon = 0.01
-num_of_tilings = 8
+num_of_tilings = 1
 max_size = 4096
 decay_agent_eps = None
 base_agent_class = SarsaLambdaCMAC3DMountainCar
@@ -32,7 +33,7 @@ env_name = 'MountainCar3D-v0'
 env_max_steps = 5000
 rd_seed = 42
 max_episodes_per_trial = 2010
-num_trials = 19 
+num_trials = 10 
 update_agent = True
 start_learning_after = 10
 print_debug = True
@@ -55,7 +56,7 @@ data_collector = None
 # whether or not to save the agent's weights
 save_agent = True
 save_agent_every = 25
-save_agent_folder = config_data["pickle_path"] + "11072022 Train MC3D No Transfer\\"
+save_agent_folder = os.path.join(config_data["pickle_path"], "11112022 Train MC3D No Transfer")
 save_agent_filename = 'agent_alpha_{:.2f}_lamb_{:.2f}_gam_{:.2f}_eps_{:.2f}_method_{}_ntiles_{}_max_size_{}.pickle'.format(alpha, lamb, gamma, epsilon, method, num_of_tilings, max_size)
 
 # whether to evaluate the agent and save the evaluation data
@@ -63,7 +64,7 @@ eval_agent = True
 save_eval_every = 25
 eval_data_col_names = ['Trial', 'Episode', 'Reward']
 eval_data_column_dtypes = ['int', 'int', 'int']
-save_eval_folder = config_data["output_path"] + "11072022 Train MC3D No Transfer\\"
+save_eval_folder = os.path.join(config_data["output_path"], "11112022 Train MC3D No Transfer")
 save_eval_filename = 'eval_3DMC_a{}_l{}_e{}_nt{}.csv'.format(alpha, lamb, epsilon, num_of_tilings)
 eval_data_collector = RLSamplesCollector(experiment_info, agent_info, eval_data_col_names, eval_data_column_dtypes)
 

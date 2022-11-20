@@ -9,7 +9,7 @@ from copy import deepcopy
 
 from GAME.bin.intertask_mappings import *
 from GAME.utils.config import config
-from GAME.agents.stats_saver import StatisticsSaver, MappingSearchExperimentInfo
+from GAME.utils.stats_saver import StatisticsSaver, MappingSearchExperimentInfo
 
 class GAME_HC:
     """Steepest-ascent hill climbing version of Genetic Algorithms for Mapping Evolution."""
@@ -25,7 +25,7 @@ class GAME_HC:
         neural_networks_folder:str,
         eval_metric:str='average',
         init_strat:str='random',
-        max_evol_gen:int=1000,
+        max_fitness_evals:int=1000,
         early_stop:bool=False,
         early_stop_gen:int=5,
         early_stop_thresh:float=10**-4,
@@ -57,7 +57,7 @@ class GAME_HC:
                 'average': average the fitness values across the predicted states and actions.
             init_strat: the initialization strategy.
                 'random': uniformly initialize the individual chromosomes.
-            max_evol_gen: the maximum number of generations to evolve.
+            max_fitness_evals: the maximum number of generations to evolve.
             early_stop: whether or not to stop evolving early.
             early_stop_gen: the number of generations to check for fitness improvement before stopping early.
             early_stop_thresh: the threshold to check whether the best fitness has changed.
@@ -92,7 +92,7 @@ class GAME_HC:
         # evolutionary algorithm parameters
         self.pop_size = 1
         self.init_strat = init_strat
-        self.max_evol_gen = max_evol_gen
+        self.max_fitness_evals = max_fitness_evals
         self.early_stop = early_stop
         self.early_stop_gen = early_stop_gen
         self.early_stop_thresh = early_stop_thresh
@@ -101,14 +101,14 @@ class GAME_HC:
         self.config_data = config()
 
         # transforming src data for mapping evaluation
-        src_data_path = os.path.join(self.config_data['output_path'], src_task_data_folder_and_filename)
+        src_data_path = src_task_data_folder_and_filename
         self.src_data_df = pd.read_csv(src_data_path, index_col = False)
         self.transformed_df_col_names = self.config_data['{}_full_transition_df_col_names'.format(target_task_name)]
         self.transformed_df_current_state_cols = self.config_data['{}_current_state_transition_df_col_names'.format(target_task_name)]
         self.transformed_df_next_state_cols = self.config_data['{}_next_state_transition_df_col_names'.format(target_task_name)]
 
         # evaluation using networks
-        network_folder_path = os.path.join(self.config_data['pickle_path'], neural_networks_folder)
+        network_folder_path = neural_networks_folder
         self.eval_networks = EvaluationNetworks(network_folder_path)
 
         # create a cache that saves fitness evaluations to avoid repeat evaluations
@@ -137,6 +137,8 @@ class GAME_HC:
         self.count_comparisons = count_comparisons
         if count_comparisons:
             self.comparisons = []
+
+        self.fitness_evaluations = 0
 
     def init_pop(self) -> list:
         """
@@ -178,6 +180,11 @@ class GAME_HC:
         Return:
             (float) the fitness of the IntertaskMapping individual.
         """
+        # count the number of fitness evaluations
+        self.fitness_evaluations = self.fitness_evaluations + 1
+        # if count comparisons
+        if self.count_comparisons:
+            self.comparisons[-1] = self.comparisons[-1] + 1
         # check to see if the fitness is already computed
         if mapping.ID in self.fitness_cache.keys():
             if self.print_debug:
@@ -196,10 +203,7 @@ class GAME_HC:
             if set_fitness:
                 mapping.fitness = consolidated_score
             # cache fitness to save computation
-            self.fitness_cache[mapping.ID] = consolidated_score
-            # if count comparisons
-            if self.count_comparisons:
-                self.comparisons[-1] = self.comparisons[-1] + 1
+            self.fitness_cache[mapping.ID] = consolidated_score               
             return consolidated_score
 
 class GAME_SAHC(GAME_HC):
@@ -216,7 +220,7 @@ class GAME_SAHC(GAME_HC):
         neural_networks_folder:str,
         eval_metric:str='average',
         init_strat:str='random',
-        max_evol_gen:int=1000,
+        max_fitness_evals:int=1000,
         early_stop:bool=False,
         early_stop_gen:int=5,
         early_stop_thresh:float=10**-4,
@@ -248,7 +252,7 @@ class GAME_SAHC(GAME_HC):
                 'average': average the fitness values across the predicted states and actions.
             init_strat: the initialization strategy.
                 'random': uniformly initialize the individual chromosomes.
-            max_evol_gen: the maximum number of generations to evolve.
+            max_fitness_evals: the maximum number of generations to evolve.
             early_stop: whether or not to stop evolving early.
             early_stop_gen: the number of generations to check for fitness improvement before stopping early.
             early_stop_thresh: the threshold to check whether the best fitness has changed.
@@ -278,7 +282,7 @@ class GAME_SAHC(GAME_HC):
             neural_networks_folder,
             eval_metric,
             init_strat,
-            max_evol_gen,
+            max_fitness_evals,
             early_stop,
             early_stop_gen,
             early_stop_thresh,
@@ -323,6 +327,8 @@ class GAME_SAHC(GAME_HC):
                     # if count comparisons
                     if self.count_comparisons:
                         self.comparisons[-1] = self.comparisons[-1] + 1
+                    if self.stats_saver:
+                        self.stats_saver.log_mapping(offspring_soln)
         for action_mapping_idx in range(len(parent_mapping.action_mapping)): # mutate action mapping
             for possible_action_mappings in self.src_action_values:
                 if possible_action_mappings != parent_mapping.action_mapping[action_mapping_idx]:
@@ -338,7 +344,9 @@ class GAME_SAHC(GAME_HC):
                         str_builder += 'Mutated offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}\n'.format(offspring_soln.ID, offspring_soln.state_mapping, offspring_soln.action_mapping, offspring_soln.fitness)
                     # if count comparisons
                     if self.count_comparisons:
-                        self.comparisons[-1] = self.comparisons[-1] + 1                      
+                        self.comparisons[-1] = self.comparisons[-1] + 1
+                    if self.stats_saver:
+                        self.stats_saver.log_mapping(offspring_soln)                                     
         
         # determine the offspring with the best fitness
         return sorted(offspring, key=lambda agent: agent.fitness, reverse=True)[0], str_builder
@@ -379,8 +387,10 @@ class GAME_SAHC(GAME_HC):
             if self.early_stop:
                 best_fitness = [self.population[0]]
 
+            gen = 0
+
             # main evolution loop
-            for gen in range(self.max_evol_gen):
+            while self.fitness_evaluations < self.max_fitness_evals:
                 best_mutated_offspring, str_builder = self.sahc_mutation(mapping, str_builder)
                 if best_mutated_offspring.fitness > mapping.fitness:
                     mapping = best_mutated_offspring                    
@@ -399,7 +409,7 @@ class GAME_SAHC(GAME_HC):
                         self.stats_saver.export_data(self.stats_out_path, self.stats_filename)
                 # if we want to save statistics
                 if self.stats_saver:
-                    self.stats_saver.analyze_population_and_log_stats(self.population, gen, self.comparisons[-1])
+                    self.stats_saver.analyze_population_and_log_stats(self.population, gen, self.comparisons[-1], self.fitness_evaluations)
 
                 # determine early stop if needed
                 if self.early_stop:
@@ -421,6 +431,8 @@ class GAME_SAHC(GAME_HC):
                 
                 # save mapping to population
                 self.population[0] = mapping
+
+                gen += 1
 
             if self.save_output_path:
                 str_builder = "Final population:\n"
@@ -558,6 +570,8 @@ class GAME_RMHC(GAME_HC):
         # if count comparisons
         if self.count_comparisons:
             self.comparisons[-1] = self.comparisons[-1] + 1        
+        if self.stats_saver:
+            self.stats_saver.log_mapping(mutated_offspring)
         
         # return the mutated individual
         return mutated_offspring, str_builder
@@ -598,8 +612,10 @@ class GAME_RMHC(GAME_HC):
             if self.early_stop:
                 best_fitness = [self.population[0]]
 
+            gen = 0
+
             # main evolution loop
-            for gen in range(self.max_evol_gen):
+            while self.fitness_evaluations < self.max_fitness_evals:
                 best_mutated_offspring, str_builder = self.rmhc_mutate(mapping, str_builder)
                 if best_mutated_offspring.fitness > mapping.fitness:
                     mapping = best_mutated_offspring                    
@@ -618,7 +634,7 @@ class GAME_RMHC(GAME_HC):
                         self.stats_saver.export_data(self.stats_out_path, self.stats_filename)
                 # if we want to save statistics
                 if self.stats_saver:
-                    self.stats_saver.analyze_population_and_log_stats(self.population, gen, self.comparisons[-1])
+                    self.stats_saver.analyze_population_and_log_stats(self.population, gen, self.comparisons[-1], self.fitness_evaluations)
 
                 # determine early stop if needed
                 if self.early_stop:
@@ -641,6 +657,8 @@ class GAME_RMHC(GAME_HC):
                 # save mapping to population
                 self.population[0] = mapping
 
+                gen += 1
+
             if self.save_output_path:
                 str_builder = "Final population:\n"
                 str_builder += 'Offspring ID: {}, State mapping: {}, Action mapping: {}, Fitness: {}\n'.format(mapping.ID, mapping.state_mapping, mapping.action_mapping, mapping.fitness)
@@ -660,7 +678,7 @@ if __name__ == '__main__':
     # load the config data
     config_data = config()
 
-    test = 1
+    test = 0
 
     if test == 0: # 3DMC test
         # variables to identify the task
@@ -675,10 +693,10 @@ if __name__ == '__main__':
         # evolution parameters
         eval_metric = 'average'
         init_strat = 'random'
-        max_evol_gen = 100
+        max_fitness_evals = 1000
         early_stop = True
         early_stop_gen = 10
-        early_stop_thresh = 10**-4
+        early_stop_thresh = 10**-3
         print_debug = True
 
         save_output_path  = os.path.join(config_data['output_path'], '11112022 MC EA', 'MC_HC_results.txt')
@@ -700,8 +718,8 @@ if __name__ == '__main__':
         src_task_data_folder_and_filename = os.path.join("11032022 2DMC Sample Collection 100 Episodes with Training", "2DMC_100_episodes_sample_data.csv")
         neural_networks_folder = "11012022 3DMC Neural Nets"
 
-        hc = GAME_RMHC(target_task_name, src_state_var_names, src_action_names, src_action_values, target_state_var_names, target_action_names, target_action_values, 
-        src_task_data_folder_and_filename, neural_networks_folder, eval_metric, init_strat, max_evol_gen, 
+        hc = GAME_SAHC(target_task_name, src_state_var_names, src_action_names, src_action_values, target_state_var_names, target_action_names, target_action_values, 
+        src_task_data_folder_and_filename, neural_networks_folder, eval_metric, init_strat, max_fitness_evals, 
         early_stop, early_stop_gen, early_stop_thresh, print_debug, save_output_path, save_every, stats_saver, stats_folder_path, stats_filename, standard_features, standard_targets, count_comparisons)
         # run the GAME model
         hc.evolve()
@@ -725,7 +743,7 @@ if __name__ == '__main__':
         # evolution parameters
         eval_metric = 'average'
         init_strat = 'random'
-        max_evol_gen = 1000
+        max_fitness_evals = 1000
         early_stop = True
         early_stop_gen = 10
         early_stop_thresh = 10**-4
@@ -751,7 +769,7 @@ if __name__ == '__main__':
         neural_networks_folder = "11102022 4v3 Neural Nets"
 
         hc = GAME_RMHC(target_task_name, src_state_var_names, src_action_names, src_action_values, target_state_var_names, target_action_names, target_action_values, 
-        src_task_data_folder_and_filename, neural_networks_folder, eval_metric, init_strat, max_evol_gen, 
+        src_task_data_folder_and_filename, neural_networks_folder, eval_metric, init_strat, max_fitness_evals, 
         early_stop, early_stop_gen, early_stop_thresh, print_debug, save_output_path, save_every, stats_saver, stats_folder_path, stats_filename, standard_features, standard_targets, count_comparisons)
         # run the GAME model
         hc.evolve()
