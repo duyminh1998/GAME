@@ -89,7 +89,7 @@ elif test == 2:
     csv_out_name = 'keepaway_4v3_transitions_v3.csv'
     trans_df.to_csv(os.path.join(csv_out_path, csv_out_name), index = False)
 elif test == 3:
-    all_logs_folderpath = os.path.join(config_data['logs_path'], "logs_3v2_10x350eps_learned")
+    all_logs_folderpath = os.path.join(config_data['logs_path'], "12142022_3v2_logs_random_explore")
     experiments = []
     for file in os.listdir(all_logs_folderpath):
         if file.endswith('.kwy') and file.split('.')[0] not in experiments:
@@ -112,6 +112,6 @@ elif test == 3:
     
     # write df to file
     csv_out_path = all_logs_folderpath
-    csv_out_name = 'keepaway_3v2_transitions_v3.csv'
+    csv_out_name = 'keepaway_3v2_transitions.csv'
     trans_df.to_csv(os.path.join(csv_out_path, csv_out_name), index = False)
 

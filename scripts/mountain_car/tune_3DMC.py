@@ -6,31 +6,50 @@ import numpy as np
 
 import GAME.envs.mountain_car
 import gym
-from GAME.agents.sarsa_lambda import SarsaLambdaCMAC3DMountainCar
+from GAME.agents.sarsa_lambda import SarsaLambdaCMAC3DMountainCar, SarsaLambdaCMAC3DMountainCarTransfer
 from GAME.utils.helper_funcs import *
 from GAME.utils.data_miners import *
+from GAME.bin.intertask_mappings import IntertaskMapping
 from GAME.bin.mountain_car_experiments import MountainCar3DExperiment
 from GAME.utils.config import config
 
 # load config data
 config_data = config()
 
+# Q-value reuse agent
+mc2d_agent_folder_path = os.path.join(config_data['pickle_path'], '11122022 Train MC2D')
+mc2d_agent_file_path = os.path.join(mc2d_agent_folder_path, 'trial0_agent_alpha_1.20_lamb_0.95_gam_1.00_eps_0.00_method_replacing_ntiles_8_max_size_2048.pickle')
+with open(mc2d_agent_file_path, 'rb') as f:
+    mc2d_agent = pickle.load(f)
+src_state_var_names = config_data['MC2D_state_names']
+src_action_names = config_data['MC2D_action_names']
+src_action_values = config_data['MC2D_action_values']
+target_state_var_names = config_data['MC3D_state_names']
+target_action_names = config_data['MC3D_action_names']
+target_action_values = config_data['MC3D_action_values']
+state_mapping = [0, 1, 0, 1]
+action_mapping = [1, 0, 2, 0, 2]
+mapping = IntertaskMapping(state_mapping, action_mapping, src_state_var_names, src_action_names, target_state_var_names, target_action_names)
+mapping_ID = mapping.ID
+
 # tuning parameters
-log = config_data['output_path'] + "11012022 3DMC Tuning\\tuning_3DMC_p4.txt"
+log = os.path.join(config_data['output_path'], "12172022 3DMC Tuning", "tuning_3DMC.txt")
 
 # agent hyperparams
 agent_hyperparams = {
-    'alpha' : np.arange(4, 5) / 4.0,
+    'alpha' : np.arange(1, 6) / 4.0,
     'lamb' : [0.99, 0.95, 0.5, 0],
     'gamma' : [1],
-    'method' : ['replacing'],
+    'method' : ['replacing', 'accumulating'],
     'epsilon': [0.01, 1],
     'num_of_tilings': [8, 14],
-    'max_size' : [2048, 4096]
+    'max_size' : [2048, 4096],
+    'transfer_agent': [mc2d_agent],
+    'mapping': [mapping]
 }
 
 decay_agent_eps = 1
-base_agent_class = SarsaLambdaCMAC3DMountainCar
+base_agent_class = SarsaLambdaCMAC3DMountainCarTransfer
 
 # experimental setup
 env_name = 'MountainCar3D-v0'
@@ -63,9 +82,9 @@ eval_agent = True
 save_eval_every = 100
 eval_data_col_names = ['Trial', 'Episode', 'Reward']
 eval_data_column_dtypes = ['int', 'int', 'int']
-save_eval_folder = config_data["output_path"] + "11012022 3DMC Tuning\\"
+save_eval_folder = os.path.join(config_data['output_path'], "12172022 3DMC Tuning")
 
-min = False
+min = True
 
 # initialize log file if requested
 try:
@@ -89,18 +108,18 @@ try:
             f.write("Current args: {}".format(cur_args_list))
 
         # instantiate the model with the current list of parameters
-        base_agent = SarsaLambdaCMAC3DMountainCar(*cur_args_list)
+        base_agent = SarsaLambdaCMAC3DMountainCarTransfer(*cur_args_list)
         if base_agent.epsilon == 1:
             decay_agent_eps = 0.99
 
         # run experiment
-        save_eval_filename = 'eval_3DMC_{}.csv'.format(cur_args_list)
+        save_eval_filename = 'eval_3DMC_{}.csv'.format(cur_args_list[:-2])
         eval_data_collector = RLSamplesCollector(experiment_info, None, eval_data_col_names, eval_data_column_dtypes)
         average_steps_per_trial = MountainCar3DExperiment(base_agent_class, base_agent, decay_agent_eps, max_episodes_per_trial, 
         num_trials, update_agent, start_learning_after, print_debug, save_sample_data, save_sample_every, 
         sample_data_col_names, sample_data_folder, sample_data_filename, data_collector, save_agent, save_agent_every,
         save_agent_folder, save_agent_filename, eval_agent, save_eval_every, eval_data_col_names, save_eval_folder, save_eval_filename, 
-        eval_data_collector, env_name, env_max_steps, rd_seed)
+        eval_data_collector, env_name, env_max_steps, rd_seed, 2)
         
         i += 1
         # append the model's average performance to a grid
@@ -126,6 +145,8 @@ try:
         if log:
             f.write('{}: {}'.format(param_key, agent_hyperparams[param_key][cur_param]) + "\n")
     f.close()
-except KeyboardInterrupt:
-    if log:
-        f.close()
+# except KeyboardInterrupt:
+#     if log:
+#         f.close()
+except:
+    pass

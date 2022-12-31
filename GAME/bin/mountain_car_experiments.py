@@ -4,7 +4,7 @@
 
 import GAME.envs.mountain_car
 import gym
-from GAME.agents.sarsa_lambda import SarsaLambdaCMAC3DMountainCar
+from GAME.agents.sarsa_lambda import SarsaLambdaCMAC3DMountainCar, SarsaLambdaCMAC3DMountainCarTransfer
 from GAME.utils.helper_funcs import *
 from GAME.utils.data_miners import *
 import copy
@@ -78,7 +78,10 @@ def MountainCar3DExperiment(
                     if update_agent and ep >= start_learning_after:
                         target = reward + agent.get_value(observation, next_action)
                         active_tiles = agent.get_active_tiles(current_state, action)
-                        agent.update(active_tiles, target)
+                        if base_agent_class == SarsaLambdaCMAC3DMountainCarTransfer:
+                            agent.update(active_tiles, target, agent.get_value(current_state, action))
+                        else:
+                            agent.update(active_tiles, target)
 
                     # save data
                     if save_sample_data:

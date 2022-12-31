@@ -361,3 +361,137 @@ class SarsaLambdaCMAC3DMountainCarTransfer(SarsaLambdaCMAC3DMountainCar):
         src_active_tiles = self.transfer_agent.get_active_tiles([y, y_dot], src_action)
         base_value += np.sum(self.transfer_agent.weights[src_active_tiles])        
         return base_value
+
+    def update(self, active_tiles:list, target:float, estimate:float) -> None:
+        """
+        Description:
+            Update the weights using the current state, action, and target value.
+
+        Arguments:
+            active_tiles: the tiles activated by the state and action. Returned by tiles from TileCoding.
+            target: the target value.
+
+        Return:
+            (None)
+        """
+        # update the traces
+        if self.method == 'accumulating':
+            self.z *= self.gamma * self.lamb
+            self.z[active_tiles] += 1
+        elif self.method == 'replacing':
+            active = np.isin(range(len(self.z)), active_tiles)
+            self.z[active] = 1
+            self.z[~active] *= self.gamma * self.lamb
+
+        # update the weights
+        # estimate = np.sum(self.weights[active_tiles])
+        delta = self.alpha_per_tile * (target - estimate)
+        self.weights += self.alpha_per_tile * delta * self.z
+
+class SarsaLambdaCMACPendulum(SarsaLambdaCMAC):
+    """Class for Sarsa lambda with CMAC to learn Pendulum"""
+    def __init__(self,
+        alpha:float,
+        lamb:float,
+        gamma:float,
+        method:str,
+        epsilon:float,
+        num_of_tilings:int,
+        max_size:int) -> None:
+        """
+        Description:
+            Initializes a Sarsa(lambda) agent using CMAC tile coding for Pendulum.
+
+        Arguments:
+            alpha: the step size parameter.
+            lambda: the trace decay rate.
+            gamma: the discount rate.
+            method: 'replacing' or 'accumulating'.
+            epsilon: the epsilon parameter for epsilon-greedy strategy of choosing actions.
+            num_of_tilings: the number of tilings used in CMAC.
+            max_size: the maximum size of the weights and trace vectors.
+
+        Return:
+            (None)
+        """
+        # inherent from parent class
+        super(SarsaLambdaCMACPendulum, self).__init__(alpha, lamb, gamma, method, num_of_tilings, max_size)
+        self.epsilon = epsilon
+        self.actions = self.config_data['pendulum_action_values']
+
+        # initialize variables specific to Pendulum
+        # scale angle and velocity for tile coding software
+        self.min_angle = -1.0
+        self.max_angle = 1.0
+        self.min_speed = -8.0
+        self.max_speed = 8.0
+        self.cos_th_scale = self.num_of_tilings / (self.max_angle - self.min_angle)
+        self.sin_th_scale = self.num_of_tilings / (self.max_angle - self.min_angle)
+        self.thdot_scale = self.num_of_tilings / (self.max_speed - self.min_speed)
+
+    def get_active_tiles(self, state:list, action:int) -> list:
+        """
+        Description:
+            Get the indices of the active tiles for a given state and action.
+
+        Arguments:
+            state: a list of the current state variables in Pendulum.
+            action: the current action.
+
+        Return:
+            (list) a list of the indices of the active tiles
+        """
+        # unpack state variables
+        cos_th, sin_th, thdot = state
+        normalized_state = [cos_th * self.cos_th_scale, sin_th * self.sin_th_scale, thdot * self.thdot_scale]
+        actions = [action]
+
+        # use TileCoding module to get active tiles
+        active_tiles = tiles(self.hash_table, self.num_of_tilings, normalized_state, actions)
+        return active_tiles
+
+    def get_value(self, state:list, action:int) -> float:
+        """
+        Description:
+            Estimate the value of a given state and action.
+
+        Arguments:
+            state: a list of the current state variables in Pendulum.
+            action: the current action.
+
+        Return:
+            (float) the value of the current state and action
+        """
+        # remember to return a 0.0 if we have already reached the goal state
+        # terminated = bool(
+        #     # state[0] >= self.goal_position and state[1] >= self.goal_velocity
+        #     state[0] >= self.goal_position
+        # )
+        # if terminated:
+        #     return 0.0
+        # else
+        active_tiles = self.get_active_tiles(state, action)
+        return np.sum(self.weights[active_tiles])
+
+    def choose_action_eps_greedy(self, state:list) -> int:
+        """
+        Description:
+            Chooses an action according to the epsilon-greedy strategy
+
+        Arguments:
+            state: a list of the current state variables in Pendulum.
+
+        Return:
+            (int) an integer representing the chosen action
+        """
+        # choose a random action
+        if np.random.uniform(0, 1) <= self.epsilon:
+            return np.random.choice(self.actions)
+        # else, choose a greedy action
+        else:
+            # assign value to each action
+            values = {}
+            for a in self.actions:
+                value_of_a = self.get_value(state, a)
+                values[a] = value_of_a
+            return np.random.choice([k for k, v in values.items() if v==max(values.values())])        

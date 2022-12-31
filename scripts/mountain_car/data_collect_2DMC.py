@@ -6,6 +6,7 @@ from GAME.agents.sarsa_lambda import SarsaLambdaCMAC2DMountainCar
 from GAME.utils.data_miners import *
 from GAME.bin.mountain_car_experiments import MountainCar2DExperiment
 from GAME.utils.config import config
+import os
 
 # load config data
 config_data = config()
@@ -15,7 +16,7 @@ alpha = 1.2
 lamb = 0.95
 gamma = 1
 method = 'replacing'
-epsilon = 0
+epsilon = 1
 num_of_tilings = 8
 max_size = 2048
 decay_agent_eps = None
@@ -26,7 +27,7 @@ base_agent = SarsaLambdaCMAC2DMountainCar(alpha, lamb, gamma, method, epsilon, n
 env_name = 'MountainCar2D-v0'
 env_max_steps = 5000
 rd_seed = 42
-max_episodes_per_trial = 100
+max_episodes_per_trial = 25
 num_trials = 1 
 update_agent = True
 start_learning_after = -1
@@ -43,14 +44,14 @@ sample_data_col_names = sample_data_col_names + [config_data['action_transition_
 sample_data_col_names = sample_data_col_names + config_data['2DMC_next_state_transition_df_col_names']
 sample_data_col_names = sample_data_col_names + [config_data['next_action_transition_df_col_name']]
 sample_data_column_dtypes = ['int', 'int', 'int', 'float', 'float', 'float', 'float', 'int', 'int', 'float', 'float', 'float', 'float', 'int']
-sample_data_folder = config_data["output_path"] + "11032022 2DMC Sample Collection 100 Episodes with Training\\"
+sample_data_folder = os.path.join(config_data["output_path"], "12142022 2DMC Sample Collection 200 Episodes with Training")
 sample_data_filename = '2DMC_100_episodes_sample_data.csv'
 data_collector = RLSamplesCollector(experiment_info, agent_info, sample_data_col_names, sample_data_column_dtypes)
 
 # whether or not to save the agent's weights
 save_agent = True
 save_agent_every = 25
-save_agent_folder = config_data['pickle_path'] + "11032022 2DMC Sample Collection 100 Episodes with Training\\"
+save_agent_folder = os.path.join(config_data['pickle_path'], "12142022 2DMC Sample Collection 200 Episodes with Training")
 save_agent_filename = '2DMC_100_ep_a{}_l{}_e{}_nt{}.pickle'.format(alpha, lamb, epsilon, num_of_tilings)
 
 # whether to evaluate the agent and save the evaluation data

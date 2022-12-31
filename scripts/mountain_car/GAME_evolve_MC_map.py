@@ -23,9 +23,9 @@ target_action_values = config_data['MC3D_action_values']
 
 # evolution parameters
 eval_metric = 'average'
-pop_size = 10
+pop_size = 20
 crossover_rate = 0.8
-mutation_rate = 0.2
+mutation_rate = 1/7
 init_strat = 'random'
 sel_strat = 'tournament'
 tournament_sel_k = int(0.4 * pop_size)

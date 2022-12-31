@@ -3,6 +3,7 @@
 /data
 /logs
 /keepaway_logs
+/keepaway_weights
 /.vscode
 
 # Byte-compiled / optimized / DLL files

@@ -18,7 +18,7 @@ def config() -> dict:
     config = {}
     # paths
     # path to the main repository
-    config['GAME_path'] = os.path.join('C:\\Users', 'minhh', 'Documents', 'JHU', 'Fall 2022', 'Evolutionary and Swarm Intelligence', 'src', 'GAME')
+    config['GAME_path'] = os.path.join('E:\\VAULT 419', 'Files', 'School', 'JHU Archive', 'Fall 2022', 'Evolutionary and Swarm Intelligence', 'src', 'GAME')
     # path to the logs
     config['logs_path'] = os.path.join(config['GAME_path'], 'keepaway_logs')
     # path to the outputs
@@ -79,6 +79,10 @@ def config() -> dict:
     ]
     config['4v3_action_names'] = ['Hold', 'Pass1', 'Pass2', 'Pass3']
     config['4v3_action_values'] = [0, 1, 2, 3]
+    # 3D Mountain Car
+    config['pendulum_state_names'] = ['cos(th)', 'sin(th)', 'thdot']
+    config['pendulum_action_names'] = ['-2', '-1.5', '-1.0', '-0.5', '0', '0.5', '1.0', '1.5', '2.0']
+    config['pendulum_action_values'] = [-2, -1.5, -1.0, -0.5, 0, 0.5, 1.0, 1.5, 2.0]    
 
     # column names for transition data
     config['action_transition_df_col_name'] = 'Current-action'

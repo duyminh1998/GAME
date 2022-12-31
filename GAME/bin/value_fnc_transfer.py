@@ -81,13 +81,13 @@ if __name__ == "__main__":
     mc3d_agent = SarsaLambdaCMAC3DMountainCar(alpha, lamb, gamma, method, epsilon, num_of_tilings, max_size)
 
     state_mapping = [0, 1, 0, 1]
-    action_mapping = [2, 2, 2, 2, 2]
+    action_mapping = [1, 0, 2, 0, 2]
     mapping = IntertaskMapping(state_mapping, action_mapping, src_state_var_names, src_action_names, target_state_var_names, target_action_names)
 
     # transfer knowledge
     mc3d_agent = mountain_car_transfer(mc2d_agent, mc3d_agent, mapping, len(src_state_var_names))
 
     dest_agent_filename = '3DMC_with_transfer_a{}_l{}_e{}_nt{}_{}.pickle'.format(mc3d_agent.alpha, mc3d_agent.lamb, mc3d_agent.epsilon, mc3d_agent.num_of_tilings, mapping.ID)
-    save_agent_path = os.path.join(config_data['pickle_path'], 'agents', 'mountain_car', '11112022 3DMC Agent Initialized with Transfer Mapping 010100000', dest_agent_filename)
+    save_agent_path = os.path.join(config_data['pickle_path'], 'agents', 'mountain_car', '12142022 New Experiments', dest_agent_filename)
     with open(save_agent_path, 'wb') as f:
         pickle.dump(mc3d_agent, f)

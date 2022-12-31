@@ -7,6 +7,7 @@ from GAME.utils.config import config
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.neural_network import MLPRegressor
+from sklearn.metrics import mean_squared_error
 import pickle
 import os
 import json
@@ -18,7 +19,8 @@ file_path = os.path.join(config_data['output_path'], '11102022 4v3 6x350 eps ran
 current_state_cols = config_data['4v3_current_state_transition_df_col_names']
 next_state_cols = config_data['4v3_next_state_transition_df_col_names']
 action_col_name = config_data['action_transition_df_col_name']
-nn_folder_path = os.path.join(config_data["pickle_path"], 'neural_nets', 'keepaway', "11142022 4v3 Neural Nets")
+# nn_folder_path = os.path.join(config_data["pickle_path"], 'neural_nets', 'keepaway', "11142022 4v3 Neural Nets")
+nn_folder_path = os.path.join(config_data["pickle_path"], "12142022 4v3 Neural Nets")
 
 ## nn training parameters
 # parameters = {
@@ -31,7 +33,7 @@ nn_folder_path = os.path.join(config_data["pickle_path"], 'neural_nets', 'keepaw
 # }
 
 parameters = {
-    'hidden_layer_sizes': [(20,), (40,), (60,), (20, 20), (40, 40)],
+    'hidden_layer_sizes': [(20,), (40,), (60,), (20, 20), (40, 40), (60, 60)],
     'activation': ['logistic', 'tanh', 'relu'],
     'solver': ['adam'],
     'learning_rate': ['constant'],
@@ -62,7 +64,7 @@ for action in actions:
         y_train = target_scaler.transform(np.array(y_train).reshape(-1, 1)).reshape(len(y_train), )
         
         mlp = MLPRegressor()
-        clf = GridSearchCV(mlp, parameters)
+        clf = GridSearchCV(mlp, parameters, scoring = 'neg_mean_squared_error')
 
         clf.fit(X_train, y_train)
 
@@ -97,7 +99,7 @@ for action in actions:
         with open(os.path.join(nn_folder_path, nn_model_filename), 'wb') as f:
             pickle.dump(final_mlp, f)
         with open(os.path.join(nn_folder_path, nn_test_results_filename), 'w') as f:
-            f.write('Test results: {}'.format(final_mlp.score(X_test, y_test)))            
+            f.write('Test results: {}'.format(1 - mean_squared_error(final_mlp.predict(X_test), y_test)))            
 
         print(network_params)
-        print('Test results: {}'.format(final_mlp.score(X_test, y_test)))
+        print('Test results: {}'.format(1 - mean_squared_error(final_mlp.predict(X_test), y_test)))

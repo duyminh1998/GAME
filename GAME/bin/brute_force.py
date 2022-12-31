@@ -507,18 +507,20 @@ if __name__ == "__main__":
     target_state_var_names = config_data['MC3D_state_names']
     target_action_names = config_data['MC3D_action_names']
     target_action_values = config_data['MC3D_action_values']
-    src_task_data_folder_and_filename = os.path.join(config_data['data_path'], "mountain_car", "MC2D_transitions.csv")
-    neural_networks_folder = os.path.join(config_data['pickle_path'], 'neural_nets', 'mountain_car')
+    # src_task_data_folder_and_filename = os.path.join(config_data['data_path'], "mountain_car", "MC2D_transitions.csv")
+    src_task_data_folder_and_filename = os.path.join(config_data['output_path'], '12142022 2DMC Sample Collection 200 Episodes with Training', "2DMC_100_episodes_sample_data.csv")
+    # neural_networks_folder = os.path.join(config_data['pickle_path'], 'neural_nets', 'mountain_car')
+    neural_networks_folder = os.path.join(config_data['pickle_path'], "12142022 MC3D Neural Nets")
 
     keep_top_k = 1
     eval_metric = 'avg_fitness'
     print_debug = True
-    save_output_path  = os.path.join(config_data['output_path'], '11142022 MC GAME-BF', 'results.txt')
+    save_output_path  = os.path.join(config_data['output_path'], '12142022 MC GAME-BF', 'results.txt')
     save_every = 1
 
     search_exp_info = MappingSearchExperimentInfo('MC2D', 'MC3D', 'MASTER', None)
     stats_saver = StatisticsSaver(search_exp_info, 1, True)
-    stats_folder_path = os.path.join(config_data['output_path'], '11142022 MC GAME-BF')
+    stats_folder_path = os.path.join(config_data['output_path'], '12142022 MC GAME-BF')
     stats_filename = 'stats.txt'
     stats_pickle = 'stats.pickle'
 

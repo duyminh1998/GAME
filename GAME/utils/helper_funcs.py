@@ -96,6 +96,7 @@ def generate_keepaway_learning_curves(kwy_paths:list, window_size:int=900, alpha
     q = np.zeros(shape = (1, window_size))
     output_X = []
     output_Y = []
+    output_eps = []
 
     # read the first kwy file. There might be more that results from interrupted training
     initial_kwy_file_path = kwy_paths[0]
@@ -119,12 +120,14 @@ def generate_keepaway_learning_curves(kwy_paths:list, window_size:int=900, alpha
 
         # read the rest of the data
         i = 0
+        ep = 0
         ccount = 0
         prev = ep_dur_sum
         while line:
             if ccount % coarse == 0:
                 output_X.append(start / 10.0 / 3600)
                 output_Y.append(prev / 10.0 / window_size)
+                output_eps.append(ep)
             
             ep_dur_sum -= q[0][i]
             parsed_line = line.split()
@@ -137,6 +140,8 @@ def generate_keepaway_learning_curves(kwy_paths:list, window_size:int=900, alpha
             i = (i + 1) % window_size
             ccount += 1
             line = f.readline()
+
+            ep += 1
     
     # continue to parse keepaway files if more are supplied. Appends this data to the previously computed data
     if len(kwy_paths) > 1:
@@ -152,6 +157,7 @@ def generate_keepaway_learning_curves(kwy_paths:list, window_size:int=900, alpha
                     if ccount % coarse == 0:
                         output_X.append(start / 10.0 / 3600)
                         output_Y.append(prev / 10.0 / window_size)
+                        output_eps.append(ep)
                     
                     ep_dur_sum -= q[0][i]
                     parsed_line = line.split()
@@ -164,9 +170,11 @@ def generate_keepaway_learning_curves(kwy_paths:list, window_size:int=900, alpha
                     i = (i + 1) % window_size
                     ccount += 1
                     line = f.readline()
+                    
+                    ep += 1
     
     # return the parsed kwy data
-    return output_X, output_Y
+    return output_X, output_Y, output_eps
 
 def generate_MC_learning_curves(training_data:pd.DataFrame, window_size:int=10, alpha:float=0.01, coarse:int=30) -> tuple:
     """
@@ -188,6 +196,8 @@ def generate_MC_learning_curves(training_data:pd.DataFrame, window_size:int=10, 
     q = np.zeros(shape = (1, window_size))
     output_X = []
     output_Y = []
+    output_eps = []
+    eps = 0
 
     # read the first window_size entries
     i = 0
@@ -210,16 +220,18 @@ def generate_MC_learning_curves(training_data:pd.DataFrame, window_size:int=10, 
             if ccount % coarse == 0:
                 output_X.append(start)
                 output_Y.append(prev / window_size)
+                output_eps.append(eps)
             
             ep_reward_sum -= q[0][i]
             ep_reward = row['Reward']
             q[0][i] = ep_reward
             ep_reward_sum += q[0][i]
             start = row['Episode']
+            eps += 1
 
             prev = (1 - alpha) * prev + alpha * ep_reward_sum
             i = (i + 1) % window_size
             ccount += 1
     
     # return the parsed kwy data
-    return output_X, output_Y
+    return output_X, output_Y, output_eps

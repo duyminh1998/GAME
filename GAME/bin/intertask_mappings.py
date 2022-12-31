@@ -7,6 +7,7 @@ import numpy as np
 import os
 from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error
 import pickle
 
 class IntertaskMapping:
@@ -188,7 +189,9 @@ def evaluate_mapping(
         for target_name in next_state_cols:
             target = src_df_by_action[target_name]
             eval_mlp = eval_networks.get_network(action, target_name)
-            eval_score = eval_mlp.score(features, target)
+            # eval_score = eval_mlp.score(features, target)
+            y_pred = eval_mlp.predict(features)
+            eval_score = 1 - mean_squared_error(target, y_pred)
             eval_scores['{}--{}'.format(action, target_name)] = eval_score
     # return the dictionary of raw scores
     return eval_scores
