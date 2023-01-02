@@ -81,8 +81,8 @@ def config() -> dict:
     config['4v3_action_values'] = [0, 1, 2, 3]
     # 3D Mountain Car
     config['pendulum_state_names'] = ['cos(th)', 'sin(th)', 'thdot']
-    config['pendulum_action_names'] = ['-2', '-1.5', '-1.0', '-0.5', '0', '0.5', '1.0', '1.5', '2.0']
-    config['pendulum_action_values'] = [-2, -1.5, -1.0, -0.5, 0, 0.5, 1.0, 1.5, 2.0]    
+    config['pendulum_action_names'] = ['-1.0', '0', '1.0']
+    config['pendulum_action_values'] = [-1.0, 0, 1.0]    
 
     # column names for transition data
     config['action_transition_df_col_name'] = 'Current-action'

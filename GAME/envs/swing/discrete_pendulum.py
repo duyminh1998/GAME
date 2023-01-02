@@ -42,7 +42,7 @@ class DiscretePendulumEnv(gym.Env):
 
     ### Revised Action Space
 
-    The action is discretized into [-2, -1.5, -1.0, -0.5, 0, 0.5, 1.0, 1.5, 2.0].
+    The action is discretized into [-1.0, 0, 1.0].
 
 
     ### Observation Space
