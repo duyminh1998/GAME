@@ -5,6 +5,7 @@
 from GAME.bin.intertask_mappings import *
 from GAME.utils.config import config
 from GAME.utils.stats_saver import StatisticsSaver, MappingSearchExperimentInfo
+from sklearn.metrics import mean_squared_error
 
 from itertools import product
 import os
@@ -209,7 +210,7 @@ class MASTER:
         
         return transformed_src_df.reset_index(drop=True)
 
-    def evaluate_mapping(
+    def evaluate_mapping_bf(
         self,
         target_action:int,
         transformed_df:pd.DataFrame,
@@ -243,7 +244,9 @@ class MASTER:
         for target_name in next_state_cols:
             target = src_df_by_action[target_name]
             eval_mlp = eval_networks.get_network(target_action, target_name)
-            eval_score = eval_mlp.score(features, target)
+            # eval_score = eval_mlp.score(features, target)
+            y_pred = eval_mlp.predict(features)
+            eval_score = 1 - mean_squared_error(target, y_pred)
             eval_scores['{}--{}'.format(target_action, target_name)] = eval_score
         # count the number of fitness evaluations
         self.fitness_evaluations = self.fitness_evaluations + 1
@@ -281,7 +284,7 @@ class MASTER:
                         # use mapping to create transformed df
                         transformed_df = self.transform_source_dataset(self.src_data_df, state_mapping, target_action_val, src_action_val, self.transformed_df_col_names)
                         # evaluate mapping using the transformed df
-                        eval_scores = self.evaluate_mapping(target_action_val, transformed_df, self.eval_networks, self.transformed_df_current_state_cols, self.transformed_df_next_state_cols)
+                        eval_scores = self.evaluate_mapping_bf(target_action_val, transformed_df, self.eval_networks, self.transformed_df_current_state_cols, self.transformed_df_next_state_cols)
                         # consolidate into one single score
                         fitness = parse_mapping_eval_scores(eval_scores)
                         mapping.action_fitness[str(target_action_val) + '--' + str(src_action_val)] = fitness
@@ -508,19 +511,20 @@ if __name__ == "__main__":
     target_action_names = config_data['MC3D_action_names']
     target_action_values = config_data['MC3D_action_values']
     # src_task_data_folder_and_filename = os.path.join(config_data['data_path'], "mountain_car", "MC2D_transitions.csv")
-    src_task_data_folder_and_filename = os.path.join(config_data['output_path'], '12142022 2DMC Sample Collection 200 Episodes with Training', "2DMC_100_episodes_sample_data.csv")
+    # src_task_data_folder_and_filename = os.path.join(config_data['data_path'], 'mountain_car', "MC2D_transitions_balanced.csv")
+    src_task_data_folder_and_filename = os.path.join(config_data['output_path'], '12142022 2DMC Sample Collection 200 Episodes with Training', "2DMC_100_episodes_sample_data_small.csv")
     # neural_networks_folder = os.path.join(config_data['pickle_path'], 'neural_nets', 'mountain_car')
-    neural_networks_folder = os.path.join(config_data['pickle_path'], "12142022 MC3D Neural Nets")
+    neural_networks_folder = os.path.join(config_data['pickle_path'], "01072023 3DMC Transition Approx MSE")
 
     keep_top_k = 1
     eval_metric = 'avg_fitness'
     print_debug = True
-    save_output_path  = os.path.join(config_data['output_path'], '12142022 MC GAME-BF', 'results.txt')
+    save_output_path  = os.path.join(config_data['output_path'], '01072023 MC GAME-BF', 'results.txt')
     save_every = 1
 
     search_exp_info = MappingSearchExperimentInfo('MC2D', 'MC3D', 'MASTER', None)
     stats_saver = StatisticsSaver(search_exp_info, 1, True)
-    stats_folder_path = os.path.join(config_data['output_path'], '12142022 MC GAME-BF')
+    stats_folder_path = os.path.join(config_data['output_path'], '01072023 MC GAME-BF')
     stats_filename = 'stats.txt'
     stats_pickle = 'stats.pickle'
 

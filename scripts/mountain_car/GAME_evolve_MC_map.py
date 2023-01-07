@@ -66,8 +66,8 @@ count_comparisons = True
 
 # helper variables
 # transforming src data
-src_task_data_folder_and_filename = os.path.join(config_data['data_path'], 'mountain_car', "MC2D_transitions.csv")
-neural_networks_folder = os.path.join(config_data['pickle_path'], 'neural_nets', "mountain_car")
+src_task_data_folder_and_filename = os.path.join(config_data['output_path'], '12142022 2DMC Sample Collection 200 Episodes with Training', "2DMC_100_episodes_sample_data_small.csv")
+neural_networks_folder = os.path.join(config_data['pickle_path'], "01072023 3DMC Transition Approx MSE")
 
 # run for 15 trials
 trials = 10
@@ -75,7 +75,7 @@ for trial in range(trials):
     print("Trial: {}".format(trial))
     
     # trial-specific params
-    output_folder_name = '11142022 Evolve MC Maps with GAME Best Early Stop'
+    output_folder_name = '01072023 Evolve MC Maps with GAME 240 FE'
     save_output_path  = os.path.join(config_data['output_path'], output_folder_name, 'trial{}_population_results.txt'.format(trial))
     stats_saver = StatisticsSaver(search_exp_info, trial, True)
     stats_folder_path = os.path.join(config_data['output_path'], output_folder_name)

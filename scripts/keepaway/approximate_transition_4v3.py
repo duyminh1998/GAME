@@ -20,7 +20,7 @@ current_state_cols = config_data['4v3_current_state_transition_df_col_names']
 next_state_cols = config_data['4v3_next_state_transition_df_col_names']
 action_col_name = config_data['action_transition_df_col_name']
 # nn_folder_path = os.path.join(config_data["pickle_path"], 'neural_nets', 'keepaway', "11142022 4v3 Neural Nets")
-nn_folder_path = os.path.join(config_data["pickle_path"], "12142022 4v3 Neural Nets")
+nn_folder_path = os.path.join(config_data["pickle_path"], "01072023 4v3 Keepaway Transition Approx MSE")
 
 ## nn training parameters
 # parameters = {
@@ -55,7 +55,7 @@ for action in actions:
         target_scaler = MinMaxScaler()
         X = df_with_one_target[data.current_state_cols]
         y = df_with_one_target[target]
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=420)
 
         # scale
         feature_scaler.fit(X_train)
@@ -79,7 +79,7 @@ for action in actions:
             learning_rate=network_params['learning_rate'], 
             learning_rate_init=network_params['learning_rate_init'], 
             solver=network_params['solver'], 
-            random_state=42, 
+            random_state=609, 
         max_iter=network_params['max_iter'])
 
         # X = feature_scaler.transform(X)
@@ -94,12 +94,18 @@ for action in actions:
         nn_cv_params_filename = 'a{}--s{}--params.txt'.format(action, target)
         nn_test_results_filename = 'a{}--s{}--results.txt'.format(action, target)
         nn_model_filename = 'a{}--s{}.pickle'.format(action, target)
+        nn_feature_scaler_filename = 'a{}--s{}--feature--scaler.pickle'.format(action, target)
+        nn_target_scaler_filename = 'a{}--s{}--target--scaler.pickle'.format(action, target)
         with open(os.path.join(nn_folder_path, nn_cv_params_filename), 'w') as f:
             f.write(json.dumps(network_params))
         with open(os.path.join(nn_folder_path, nn_model_filename), 'wb') as f:
             pickle.dump(final_mlp, f)
         with open(os.path.join(nn_folder_path, nn_test_results_filename), 'w') as f:
-            f.write('Test results: {}'.format(1 - mean_squared_error(final_mlp.predict(X_test), y_test)))            
+            f.write('Test results: {}'.format(1 - mean_squared_error(final_mlp.predict(X_test), y_test)))
+        with open(os.path.join(nn_folder_path, nn_feature_scaler_filename), 'wb') as f:
+            pickle.dump(feature_scaler, f)     
+        with open(os.path.join(nn_folder_path, nn_target_scaler_filename), 'wb') as f:
+            pickle.dump(target_scaler, f)                       
 
         print(network_params)
         print('Test results: {}'.format(1 - mean_squared_error(final_mlp.predict(X_test), y_test)))

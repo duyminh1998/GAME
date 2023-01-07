@@ -137,8 +137,8 @@ class GAME:
         self.transformed_df_next_state_cols = self.config_data['{}_next_state_transition_df_col_names'.format(target_task_name)]
 
         # evaluation using networks
-        network_folder_path = neural_networks_folder
-        self.eval_networks = EvaluationNetworks(network_folder_path)
+        self.network_folder_path = neural_networks_folder
+        self.eval_networks = EvaluationNetworks(self.network_folder_path)
 
         # create a cache that saves fitness evaluations to avoid repeat evaluations
         self.fitness_cache = {}
@@ -151,17 +151,19 @@ class GAME:
         self.stats_out_path = stats_folder_path
         self.stats_filename = stats_filename
 
-        if standard_features:
-            feature_scaler = MinMaxScaler()
-            feature_names = ['Current-{}'.format(feature) for feature in self.src_state_var_names]
-            feature_scaler.fit(self.src_data_df[feature_names])
-            self.src_data_df[feature_names] = feature_scaler.transform(self.src_data_df[feature_names])
+        self.standard_features = standard_features
+        self.standard_targets = standard_targets
+        # if standard_features:
+        #     feature_scaler = MinMaxScaler()
+        #     feature_names = ['Current-{}'.format(feature) for feature in self.src_state_var_names]
+        #     feature_scaler.fit(self.src_data_df[feature_names])
+        #     self.src_data_df[feature_names] = feature_scaler.transform(self.src_data_df[feature_names])
 
-        if standard_targets:
-            target_scaler = MinMaxScaler()
-            target_names = ['Next-{}'.format(feature) for feature in self.src_state_var_names]
-            target_scaler.fit(self.src_data_df[target_names])
-            self.src_data_df[target_names] = target_scaler.transform(self.src_data_df[target_names])
+        # if standard_targets:
+        #     target_scaler = MinMaxScaler()
+        #     target_names = ['Next-{}'.format(feature) for feature in self.src_state_var_names]
+        #     target_scaler.fit(self.src_data_df[target_names])
+        #     self.src_data_df[target_names] = target_scaler.transform(self.src_data_df[target_names])
 
         self.count_comparisons = count_comparisons
         if count_comparisons:
@@ -379,7 +381,7 @@ class GAME:
             # use mapping to create transformed df
             transformed_df = transform_source_dataset(self.src_data_df, mapping, self.transformed_df_col_names, self.target_action_values)
             # evaluate mapping using the transformed df
-            eval_scores = evaluate_mapping(mapping, transformed_df, self.eval_networks, self.transformed_df_current_state_cols, self.transformed_df_next_state_cols, self.target_action_values)
+            eval_scores = evaluate_mapping(mapping, transformed_df, self.eval_networks, self.transformed_df_current_state_cols, self.transformed_df_next_state_cols, self.target_action_values, self.standard_features, self.standard_targets, self.network_folder_path)
             consolidated_score = parse_mapping_eval_scores(eval_scores, strategy = self.eval_metric)
             # evaluate the mapping's fitness depending on different strategies
             if self.eval_metric == 'average':

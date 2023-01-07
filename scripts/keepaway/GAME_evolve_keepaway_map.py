@@ -25,7 +25,7 @@ target_action_values = config_data['4v3_action_values']
 eval_metric = 'average'
 pop_size = 100
 crossover_rate = 0.8
-mutation_rate = 0.05
+mutation_rate = 0.043
 init_strat = 'random'
 sel_strat = 'tournament'
 tournament_sel_k = int(0.1 * pop_size)
@@ -33,7 +33,7 @@ crossover_strat = 'one-pt'
 mutation_strat = 'uniform'
 replace_strat = 'replace-all-parents'
 top_k_elitism = 5
-max_fitness_evals = 5000
+max_fitness_evals = 2000
 early_stop = False
 early_stop_gen = 10
 early_stop_thresh = 10**-3
@@ -68,15 +68,15 @@ count_comparisons = True
 # transforming src data
 # src_task_data_folder_and_filename = os.path.join(config_data['data_path'], 'keepaway', "keepaway_3v2_transitions.csv")
 src_task_data_folder_and_filename = os.path.join(config_data['logs_path'], '12142022_3v2_logs_random_explore', "keepaway_3v2_transitions.csv")
-neural_networks_folder = os.path.join(config_data['pickle_path'], 'neural_nets', "keepaway")
+neural_networks_folder = os.path.join(config_data['pickle_path'], '01072023 4v3 Keepaway Transition Approx MSE')
 
 # run for 15 trials
-trials = 5
+trials = 10
 for trial in range(trials):
     print("Trial: {}".format(trial))
     
     # trial-specific params
-    output_folder_name = '12142022 Evolve keepaway Maps with GAME 5000 FE One-pt CX 0.05 Mutation MSE'
+    output_folder_name = '01072023 Evolve keepaway Maps with GAME 2000 FE One-pt CX 0.043 Mutation MSE'
     save_output_path  = os.path.join(config_data['output_path'], output_folder_name, 'trial{}_population_results.txt'.format(trial))
     stats_saver = StatisticsSaver(search_exp_info, trial, True)
     stats_folder_path = os.path.join(config_data['output_path'], output_folder_name)

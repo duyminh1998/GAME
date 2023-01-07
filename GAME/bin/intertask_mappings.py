@@ -159,7 +159,10 @@ def evaluate_mapping(
     eval_networks:EvaluationNetworks,
     current_state_cols:list,
     next_state_cols:list,
-    actions:list
+    actions:list,
+    standard_features:bool=False,
+    standard_targets:bool=False,
+    standardizer_paths:str=None
 ) -> dict:
     """
     Description:
@@ -172,6 +175,9 @@ def evaluate_mapping(
         current_state_cols: the names of the columns that represent the current state.
         next_state_cols: the names of the columns that represent the afterstate.
         actions: a list of actions in the target task.
+        standard_features: whether to standardize the features.
+        standard_targets: whether to standardize the targets.
+        standardizer_paths: the path containing the standardizers.
 
     Return:
         (pd.DataFrame) a dataset of transformed transition samples from the source task.
@@ -184,10 +190,20 @@ def evaluate_mapping(
         src_df_by_action = transformed_df[transformed_df[action_col_name] == 1]
 
         # evaluate the mapping's transformed df
-        features = src_df_by_action[current_state_cols]
         # we evaluate each afterstate variable independently
         for target_name in next_state_cols:
-            target = src_df_by_action[target_name]
+            if standard_features:
+                with open(os.path.join(standardizer_paths, 'a{}--s{}--feature--scaler.pickle'.format(action, target_name)), 'rb') as f:
+                    feature_scaler = pickle.load(f)
+                features = feature_scaler.transform(src_df_by_action[current_state_cols])
+            else:  
+                features = src_df_by_action[current_state_cols]            
+            if standard_targets:
+                with open(os.path.join(standardizer_paths, 'a{}--s{}--target--scaler.pickle'.format(action, target_name)), 'rb') as f:
+                    target_scaler = pickle.load(f)
+                target = target_scaler.transform(np.array(src_df_by_action[target_name]).reshape(-1, 1)).reshape(len(src_df_by_action[target_name]), )
+            else:                
+                target = src_df_by_action[target_name]
             eval_mlp = eval_networks.get_network(action, target_name)
             # eval_score = eval_mlp.score(features, target)
             y_pred = eval_mlp.predict(features)
