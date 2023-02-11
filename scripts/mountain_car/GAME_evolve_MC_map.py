@@ -23,7 +23,7 @@ target_action_values = config_data['MC3D_action_values']
 
 # evolution parameters
 eval_metric = 'average'
-pop_size = 20
+pop_size = 10
 crossover_rate = 0.8
 mutation_rate = 1/7
 init_strat = 'random'
@@ -34,7 +34,7 @@ mutation_strat = 'uniform'
 replace_strat = 'replace-all-parents'
 top_k_elitism = 1
 max_fitness_evals = 240
-early_stop = True
+early_stop = False
 early_stop_gen = 10
 early_stop_thresh = 10**-3
 print_debug = True

@@ -339,27 +339,27 @@ class SarsaLambdaCMAC3DMountainCarTransfer(SarsaLambdaCMAC3DMountainCar):
         # add value from transfer agent
         # build mapped state variables and actions
         x, x_dot, y, y_dot = state
-        # src_action = self.mapping.action_mapping[action]
+        src_action = self.mapping.action_mapping[action]
         # r2_values = [[0.9929816541449503, 0.9863922534862493, 0.9827540818142966],
         # [0.9898554363903732, 0.9807461375299111, 0.9727148311728532], [0.992743856876952, 0.9865786993775076, 0.9873256083696892],
         # [0.9938926191874691, 0.9863977078527576, 0.9832993967828477], [0.9813449416585194, 0.9650493513874667, 0.9363257347643477]
         # ]
-        r2_values = [[0.0118, 0.0079, 0.0103],
-        [0.0095, 0.0088, 0.0127], [0.0144, 0.0095, 0.0089],
-        [0.0099, 0.0093, 0.0135], [0.0136, 0.01, 0.01]
-        ]        
-        r2_sum = sum(1/val for val in r2_values[action])
-        # print("Base value: {}".format(base_value))
-        for src_action in [0, 1, 2]:
-            # print("Source action: {}, Value: {}".format(src_action, self.transfer_agent.get_value([x, x_dot], src_action)))
-            src_active_tiles = self.transfer_agent.get_active_tiles([x, x_dot], src_action)
-            base_value += np.sum(self.transfer_agent.weights[src_active_tiles]) * (1 / r2_values[action][src_action]) * (1 / r2_sum)
-            src_active_tiles = self.transfer_agent.get_active_tiles([y, y_dot], src_action)
-            base_value += np.sum(self.transfer_agent.weights[src_active_tiles]) * (1 / r2_values[action][src_action]) * (1 / r2_sum)
-        # src_active_tiles = self.transfer_agent.get_active_tiles([x, x_dot], src_action)
-        # base_value += np.sum(self.transfer_agent.weights[src_active_tiles])
-        # src_active_tiles = self.transfer_agent.get_active_tiles([y, y_dot], src_action)
-        # base_value += np.sum(self.transfer_agent.weights[src_active_tiles])        
+        # r2_values = [[0.0118, 0.0079, 0.0103],
+        # [0.0095, 0.0088, 0.0127], [0.0144, 0.0095, 0.0089],
+        # [0.0099, 0.0093, 0.0135], [0.0136, 0.01, 0.01]
+        # ]        
+        # r2_sum = sum(1/val for val in r2_values[action])
+        # # print("Base value: {}".format(base_value))
+        # for src_action in [0, 1, 2]:
+        #     # print("Source action: {}, Value: {}".format(src_action, self.transfer_agent.get_value([x, x_dot], src_action)))
+        #     src_active_tiles = self.transfer_agent.get_active_tiles([x, x_dot], src_action)
+        #     base_value += np.sum(self.transfer_agent.weights[src_active_tiles]) * (1 / r2_values[action][src_action]) * (1 / r2_sum)
+        #     src_active_tiles = self.transfer_agent.get_active_tiles([y, y_dot], src_action)
+        #     base_value += np.sum(self.transfer_agent.weights[src_active_tiles]) * (1 / r2_values[action][src_action]) * (1 / r2_sum)
+        src_active_tiles = self.transfer_agent.get_active_tiles([x, x_dot], src_action)
+        base_value += np.sum(self.transfer_agent.weights[src_active_tiles])
+        src_active_tiles = self.transfer_agent.get_active_tiles([y, y_dot], src_action)
+        base_value += np.sum(self.transfer_agent.weights[src_active_tiles])        
         return base_value
 
     def update(self, active_tiles:list, target:float, estimate:float) -> None:

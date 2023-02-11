@@ -28,12 +28,12 @@ target_state_var_names = config_data['MC3D_state_names']
 target_action_names = config_data['MC3D_action_names']
 target_action_values = config_data['MC3D_action_values']
 state_mapping = [0, 1, 0, 1]
-action_mapping = [1, 0, 2, 0, 2]
+action_mapping = [1, 1, 2, 1, 2]
 mapping = IntertaskMapping(state_mapping, action_mapping, src_state_var_names, src_action_names, target_state_var_names, target_action_names)
 mapping_ID = mapping.ID
 
 # tuning parameters
-log = os.path.join(config_data['output_path'], "12172022 3DMC Tuning", "tuning_3DMC.txt")
+log = os.path.join(config_data['output_path'], "01092023 3DMC Tuning with 010111212", "tuning_3DMC.txt")
 
 # agent hyperparams
 agent_hyperparams = {
@@ -55,7 +55,7 @@ base_agent_class = SarsaLambdaCMAC3DMountainCarTransfer
 env_name = 'MountainCar3D-v0'
 env_max_steps = 5000
 rd_seed = 420
-max_episodes_per_trial = 250
+max_episodes_per_trial = 10
 num_trials = 1 
 update_agent = True
 start_learning_after = -1
@@ -82,7 +82,7 @@ eval_agent = True
 save_eval_every = 100
 eval_data_col_names = ['Trial', 'Episode', 'Reward']
 eval_data_column_dtypes = ['int', 'int', 'int']
-save_eval_folder = os.path.join(config_data['output_path'], "12172022 3DMC Tuning")
+save_eval_folder = os.path.join(config_data['output_path'], "01092023 3DMC Tuning with 010111212")
 
 min = True
 

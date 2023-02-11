@@ -18,8 +18,8 @@ from GAME.bin.intertask_mappings import IntertaskMapping
 config_data = config()
 
 # init agent
-alpha = 0.75
-lamb = 0.99
+alpha = 0.5
+lamb = 0.5
 gamma = 1
 method = 'replacing'
 epsilon = 0.01
@@ -46,7 +46,7 @@ target_state_var_names = config_data['MC3D_state_names']
 target_action_names = config_data['MC3D_action_names']
 target_action_values = config_data['MC3D_action_values']
 state_mapping = [0, 1, 0, 1]
-action_mapping = [1, 0, 2, 0, 2]
+action_mapping = [1, 1, 2, 1, 2]
 mapping = IntertaskMapping(state_mapping, action_mapping, src_state_var_names, src_action_names, target_state_var_names, target_action_names)
 mapping_ID = mapping.ID
 base_agent = SarsaLambdaCMAC3DMountainCarTransfer(alpha, lamb, gamma, method, epsilon, num_of_tilings, max_size, mc2d_agent, mapping)
@@ -77,7 +77,7 @@ sample_data_folder = None
 sample_data_filename = None
 data_collector = None
 
-experiment_name = "01012023 Train MC3D With QValue Transfer Mapping {}".format('master')
+experiment_name = "01092023 Train MC3D With QValue Transfer Mapping {} 2".format(mapping_ID)
 
 # whether or not to save the agent's weights
 save_agent = True

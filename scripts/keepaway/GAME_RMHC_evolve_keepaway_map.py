@@ -25,7 +25,7 @@ target_action_values = config_data['4v3_action_values']
 eval_metric = 'average'
 init_strat = 'random'
 max_fitness_evals = 2000
-early_stop = True
+early_stop = False
 early_stop_gen = 20
 early_stop_thresh = 10**-3
 print_debug = True
@@ -48,8 +48,8 @@ count_comparisons = True
 
 # helper variables
 # transforming src data
-src_task_data_folder_and_filename = os.path.join(config_data['data_path'], 'keepaway', "keepaway_3v2_transitions.csv")
-neural_networks_folder = os.path.join(config_data['pickle_path'], 'neural_nets', "keepaway")
+src_task_data_folder_and_filename = os.path.join(config_data['logs_path'], '12142022_3v2_logs_random_explore', "keepaway_3v2_transitions.csv")
+neural_networks_folder = os.path.join(config_data['pickle_path'], '01072023 4v3 Keepaway Transition Approx MSE')
 
 # run for 15 trials
 trials = 10
@@ -57,7 +57,7 @@ for trial in range(trials):
     print("Trial: {}".format(trial))
     
     # trial-specific params
-    output_folder_name = '11142022 Evolve keepaway Maps with GAME_RMHC Early Stopping'
+    output_folder_name = '01072023 Evolve keepaway Maps with GAME-RMHC 2000 FE MSE'
     save_output_path  = os.path.join(config_data['output_path'], output_folder_name, 'trial{}_population_results.txt'.format(trial))
     stats_saver = StatisticsSaver(search_exp_info, trial, True)
     stats_folder_path = os.path.join(config_data['output_path'], output_folder_name)
