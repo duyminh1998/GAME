@@ -1,7 +1,9 @@
 # Genetic Algorithms for Mapping Evolution (GAME)
 Code for the Genetic Algorithms for Mapping Evolution (GAME) project. Submitted as part of a research project for the Evolutionary Computation and Swarm Intelligence course at Johns Hopkins University during Fall 2022.
 
-The paper has been accepted to the IEEE Congress on Evolutionary Computation (CEC) 2023. The paper can be found at this link: TBD.
+The paper has been accepted to the IEEE Congress on Evolutionary Computation (CEC) 2023. 
+
+The paper can be found at this link: TBD.
 
 # Abstract
 Recently, there has been a focus on using transfer learning to reduce the sample complexity in reinforcement learning. One component that enables transfer is an intertask mapping that relates a pair of tasks. Automatic methods attempt to learn task relationships either by evaluating all possible mappings in a brute force manner, or by using techniques such as neural networks to represent the mapping. However, brute force methods do not scale well in problems since there is an exponential number of possible mappings, and automatic methods that use complex representations generate mappings that are not always interpretable. In this paper, we describe
